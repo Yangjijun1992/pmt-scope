@@ -1,0 +1,22 @@
+# PMTscope 配置文件
+# 数据库路径配置
+database:
+  type: csv              # sqlite 或 csv
+  path: data/pmt_data.csv  # 数据库文件路径
+
+# 可视化默认参数
+visualization:
+  default_bin_count: 30
+  min_bin_count: 5
+  max_bin_count: 100
+  show_kde: false
+
+# 离群点检测配置
+outlier:
+  method: iqr           # iqr 或 sigma
+  sigma_multiplier: 3.0  # 3σ 规则的倍数
+  iqr_multiplier: 1.5    # IQR 规则的倍数
+
+# 中心值配置
+center:
+  method: median         # median 或 mean
