@@ -1,8 +1,10 @@
 """PMTscope — PMT 性能参数诊断工具主入口"""
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
+from dotenv import load_dotenv
 
 from data_loader import load_config, load_data, filter_data, query_records, parse_query_string
 from plots import (
@@ -12,11 +14,62 @@ from plots import (
 )
 from utils import detect_outliers_df
 
+load_dotenv()
+
 st.set_page_config(
     page_title="PMTscope",
     page_icon="🔬",
     layout="wide",
 )
+
+# ── 用户认证 ────────────────────────────────────────────────────
+
+VALID_USERNAME = os.getenv("PMTSCOPE_USERNAME", "")
+VALID_PASSWORD = os.getenv("PMTSCOPE_PASSWORD", "")
+
+
+def check_password():
+    """登录验证，返回 True 表示通过。"""
+
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+        st.session_state["login_error"] = False
+
+    if st.session_state["authenticated"]:
+        return True
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("🔬 PMTscope")
+        st.markdown("PMT 性能参数诊断工具 · 请登录后使用")
+
+        with st.form("login_form"):
+            username = st.text_input("用户名")
+            password = st.text_input("密码", type="password")
+            submitted = st.form_submit_button("登录", width="stretch")
+
+            if submitted:
+                if username == VALID_USERNAME and password == VALID_PASSWORD:
+                    st.session_state["authenticated"] = True
+                    st.session_state["login_error"] = False
+                    st.rerun()
+                else:
+                    st.session_state["login_error"] = True
+
+        if st.session_state.get("login_error"):
+            st.error("用户名或密码错误，请重试。")
+
+    return False
+
+
+if not check_password():
+    st.stop()
+
+
+def logout():
+    st.session_state["authenticated"] = False
+    st.session_state["login_error"] = False
+
 
 # ── 加载配置与数据 ──────────────────────────────────────────────
 
@@ -42,6 +95,10 @@ cfg_center = config.get("center", {})
 with st.sidebar:
     st.title("🔬 PMTscope")
     st.markdown("PMT 性能参数诊断工具")
+
+    if st.button("🚪 退出登录", width="stretch"):
+        logout()
+        st.rerun()
 
     st.header("📋 全局过滤器")
 
