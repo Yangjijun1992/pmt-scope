@@ -23,7 +23,7 @@ def _scale_column(df: pd.DataFrame, column: str) -> pd.Series:
 
 def _format_value(column: str, value: float) -> str:
     if column == "spe_gain":
-        return f"{value:.3g}"
+        return f"{value:.2f}"
     elif column == "dark_count_rate":
         return f"{value:.1f}"
     elif column == "after_pulse_probability":
@@ -141,7 +141,7 @@ def plot_3d_scatter(
     )
     fig.update_traces(
         hovertemplate=(
-            "Gain: %{x:.3g} [1.E6 e⁻]<br>"
+            "Gain: %{x:.2f} [1.E6 e⁻]<br>"
             "Dark Rate: %{y:.1f} [Hz]<br>"
             "After Pulse: %{z:.4f} [%]<br>"
             "pmt_id: %{customdata[0]}<br>"

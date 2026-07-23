@@ -248,7 +248,7 @@ HIST_TITLES = {
 }
 
 HIST_XRANGE = {
-    "spe_gain": (0, 25),
+    "spe_gain": (-5, 20),
     "dark_count_rate": (-500, 10000),
     "after_pulse_probability": (-10, 20),
 }

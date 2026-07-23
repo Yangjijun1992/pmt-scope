@@ -51,6 +51,9 @@ def _clean_data(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    if "spe_gain" in df.columns:
+        df["spe_gain"] = df["spe_gain"].round(2)
+
     if "measurement_time" in df.columns:
         df["measurement_time"] = pd.to_datetime(df["measurement_time"], errors="coerce")
 
