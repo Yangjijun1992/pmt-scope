@@ -13,101 +13,119 @@
 - **多 Run 对比**：直方图和趋势图支持同时对比多个 Run
 - **快速查询面板**：按 pmt_id / run_id 查询，支持导出 CSV
 
-## 安装
+## 推荐部署：Streamlit Community Cloud（公网访问）
+
+将应用部署到 Streamlit Cloud，校外用户无需 VPN 即可通过浏览器访问。数据托管在 GitHub **私有仓库**，不会公开泄露。
+
+### 第一步：准备 GitHub 私有仓库
+
+代码和数据已推送到私有仓库。确保仓库为 **Private**：
 
 ```bash
-# 创建虚拟环境
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 生成示例数据（可选，用于本地测试）
-python generate_sample_data.py
+# 确认远程地址
+git remote -v
 ```
 
-## 配置凭据（重要）
+### 第二步：部署到 Streamlit Cloud
 
-1. 复制凭据模板为 `.env` 文件：
+1. 访问 [share.streamlit.io](https://share.streamlit.io)
+2. 用 GitHub 账号登录
+3. 点击 **New app** → 选择仓库 `Yangjijun1992/pmt-scope`
+4. Main file path: `app.py`
+5. 点击 **Advanced settings** → 选择 Python 版本（3.10+）
+6. 点击 **Deploy**
 
-```bash
-cp .env.example .env
-```
+### 第三步：配置认证凭据（Secrets）
 
-2. 编辑 `.env` 填入实际的用户名和密码：
+在 Streamlit Cloud 的 App Settings → **Secrets** 中添加：
 
-```
-PMTSCOPE_USERNAME=your_username
-PMTSCOPE_PASSWORD=your_password
-```
-
-> `.env` 已在 `.gitignore` 中排除，不会被提交到远程仓库。
-
-3. 编辑 `config.yaml` 指定数据库路径：
-
-```yaml
-database:
-  type: csv          # csv 或 sqlite
-  path: data/pmt_data.csv
-```
-
-## 本地运行
-
-```bash
-source .venv/bin/activate
-streamlit run app.py
-```
-
-默认监听 `http://localhost:8501`，浏览器打开后输入 `.env` 中配置的用户名和密码即可登录。
-
-## 公网部署
-
-推荐使用 **Streamlit Community Cloud** 或自行部署到云服务器。
-
-### Streamlit Community Cloud
-
-1. 将代码推送到 GitHub 仓库
-2. 在 [share.streamlit.io](https://share.streamlit.io) 连接仓库并创建 App
-3. 在 App Settings → Secrets 中添加：
-
-```
+```toml
 PMTSCOPE_USERNAME = "your_username"
 PMTSCOPE_PASSWORD = "your_password"
 ```
 
-### 自行部署（Linux 服务器）
+凭据通过 Streamlit Secrets 注入，不会出现在仓库代码或日志中。
+
+### 第四步：同步数据
+
+在内网服务器上运行同步脚本，将 SQLite 数据导出为 CSV 并推送到 GitHub：
+
+```bash
+./sync_and_deploy.sh
+```
+
+脚本执行流程：
+1. 从 `/mnt/data/TPC/database/pmt_data.db` 导出 `measurements` 表 → `data/pmt_data.csv`
+2. `git commit` CSV 文件
+3. `git push` 到 GitHub
+
+Streamlit Cloud 检测到推送后会自动重新部署，新数据即可在网页端查看。
+
+建议配合 cron 定时执行：
+
+```bash
+# 每天凌晨 2 点自动同步
+0 2 * * * cd /home/yjj/pmtdatabase/pmt-scope && ./sync_and_deploy.sh >> sync.log 2>&1
+```
+
+### 访问
+
+部署完成后，Streamlit Cloud 会分配一个公网 URL：`https://pmt-scope-xxxx.streamlit.app`
+
+校外用户打开该 URL，输入用户名密码即可访问。
+
+---
+
+## 本地/内网运行
+
+如需在内网服务器上运行：
 
 ```bash
 # 安装依赖
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 配置 .env 凭据
+# 配置凭据
 cp .env.example .env
-vim .env  # 填入实际凭据
+# 编辑 .env 填入实际用户名和密码
 
-# 后台运行（监听所有网络接口）
-nohup streamlit run app.py --server.address 0.0.0.0 --server.port 8501 &
+# 编辑 config.yaml 选择数据源
+# database.type: csv  → 使用 data/pmt_data.csv
+# database.type: sqlite → 使用 /mnt/data/TPC/database/pmt_data.db
+
+# 启动
+streamlit run app.py
 ```
 
-使用 Nginx 反向代理可配置 HTTPS 和自定义域名。
+或使用启动脚本常驻后台：
+
+```bash
+./start.sh start    # 启动
+./start.sh stop     # 停止
+./start.sh status   # 查看状态
+```
 
 ## 项目结构
 
 ```
 PMTscope/
 ├── app.py                    # 主入口（含用户认证）
-├── data_loader.py            # 数据加载与过滤
+├── data_loader.py            # 数据加载与过滤（支持 CSV / SQLite）
 ├── plots.py                  # Plotly 图表生成
 ├── utils.py                  # 统计计算与离群点检测
 ├── config.yaml               # 数据库与可视化配置
-├── .env.example              # 凭据模板
-├── .gitignore                # Git 忽略规则
-├── requirements.txt          # 依赖列表
+├── sync_and_deploy.sh        # 数据同步 → GitHub → Streamlit Cloud 自动部署
+├── start.sh                  # 本地/内网 启动/停止脚本
+├── pmtscope.service          # systemd 服务文件
+├── .env.example              # 凭据模板（本地用）
+├── .streamlit/
+│   └── secrets.toml.example  # Streamlit Secrets 模板
+├── .gitignore
+├── requirements.txt
 ├── generate_sample_data.py   # 示例数据生成脚本
 ├── data/
-│   └── pmt_data.csv          # 数据文件
+│   └── pmt_data.csv          # 数据文件（CSV 模式，由 sync_and_deploy.sh 生成）
 └── docs/
     ├── inference.md          # 需求文档
     └── tasks.md              # 开发任务列表

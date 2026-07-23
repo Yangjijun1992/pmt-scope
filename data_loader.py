@@ -31,10 +31,11 @@ def load_data(config: dict) -> pd.DataFrame:
     db_cfg = config.get("database", {})
     db_type = db_cfg.get("type", "csv")
     db_path = db_cfg.get("path", "data/pmt_data.csv")
+    db_table = db_cfg.get("table", "measurements")
 
     if db_type == "sqlite":
         conn = sqlite3.connect(db_path)
-        df = pd.read_sql_query("SELECT * FROM pmt_data", conn)
+        df = pd.read_sql_query(f"SELECT * FROM {db_table}", conn)
         conn.close()
     elif db_type == "csv":
         df = pd.read_csv(db_path)

@@ -24,8 +24,16 @@ st.set_page_config(
 
 # ── 用户认证 ────────────────────────────────────────────────────
 
-VALID_USERNAME = os.getenv("PMTSCOPE_USERNAME", "")
-VALID_PASSWORD = os.getenv("PMTSCOPE_PASSWORD", "")
+def _get_credentials():
+    """从 st.secrets (Streamlit Cloud) 或 .env (本地) 读取凭据。"""
+    try:
+        username = st.secrets["PMTSCOPE_USERNAME"]
+        password = st.secrets["PMTSCOPE_PASSWORD"]
+        return username, password
+    except (KeyError, FileNotFoundError, AttributeError):
+        return os.getenv("PMTSCOPE_USERNAME", ""), os.getenv("PMTSCOPE_PASSWORD", "")
+
+VALID_USERNAME, VALID_PASSWORD = _get_credentials()
 
 
 def check_password():
@@ -102,12 +110,14 @@ with st.sidebar:
 
     st.header("📋 全局过滤器")
 
-    hv_min = float(raw_df["hv"].min()) if "hv" in raw_df.columns else 0
-    hv_max = float(raw_df["hv"].max()) if "hv" in raw_df.columns else 3000
+    hv_min = 500.0
+    hv_max = 2000.0
+    actual_hv_min = float(raw_df["hv"].min()) if "hv" in raw_df.columns else hv_min
+    actual_hv_max = float(raw_df["hv"].max()) if "hv" in raw_df.columns else hv_max
     hv_range = st.slider(
         "高压值 (HV) 范围",
         min_value=hv_min, max_value=hv_max,
-        value=(hv_min, hv_max),
+        value=(max(actual_hv_min, hv_min), min(actual_hv_max, hv_max)),
         step=1.0,
     )
 
@@ -231,6 +241,12 @@ if query_btn and query_input.strip():
 
 # ── 参数直方图 ──────────────────────────────────────────────────
 
+HIST_XRANGE = {
+    "spe_gain": (0, 25),
+    "dark_count_rate": (-100, 20000),
+    "after_pulse_probability": (-1, 30),
+}
+
 st.header("📊 参数直方图")
 
 if len(selected_run_ids) >= 2:
@@ -240,7 +256,7 @@ if len(selected_run_ids) >= 2:
     cols = st.columns(len(outlier_columns))
     for i, col_name in enumerate(outlier_columns):
         with cols[i]:
-            fig = plot_histogram_compare(compare_dfs, col_name, nbins=bin_count)
+            fig = plot_histogram_compare(compare_dfs, col_name, nbins=bin_count, x_range=HIST_XRANGE.get(col_name))
             st.plotly_chart(fig, width="stretch", key=f"hist_cmp_{col_name}")
 else:
     cols = st.columns(len(outlier_columns))
@@ -252,6 +268,7 @@ else:
                 filtered_df, col_name,
                 nbins=bin_count, show_kde=show_kde,
                 outlier_mask=mask,
+                x_range=HIST_XRANGE.get(col_name),
             )
             st.plotly_chart(fig, width="stretch", key=f"hist_{col_name}")
 
@@ -291,9 +308,9 @@ else:
 st.header("📈 参数 vs. PMT ID 趋势散点图")
 
 y_labels = {
-    "spe_gain": "单光子增益",
-    "dark_count_rate": "暗计数率 (Hz)",
-    "after_pulse_probability": "后脉冲概率",
+    "spe_gain": "Gain [1.E6 e⁻]",
+    "dark_count_rate": "Dark Rate [Hz]",
+    "after_pulse_probability": "After Pulse Probability [%]",
 }
 
 if len(selected_run_ids) >= 2:

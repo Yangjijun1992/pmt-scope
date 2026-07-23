@@ -5,3 +5,6 @@ __pycache__/
 .DS_Store
 .env
 *.env
+.streamlit/secrets.toml
+.pmtscope.pid
+pmtscope.log
