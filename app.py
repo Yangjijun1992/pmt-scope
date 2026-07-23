@@ -241,10 +241,16 @@ if query_btn and query_input.strip():
 
 # ── 参数直方图 ──────────────────────────────────────────────────
 
+HIST_TITLES = {
+    "spe_gain": "SPE Gain Distribution",
+    "dark_count_rate": "Dark Rate Distribution",
+    "after_pulse_probability": "After Pulse Probability Distribution",
+}
+
 HIST_XRANGE = {
     "spe_gain": (0, 25),
-    "dark_count_rate": (-100, 20000),
-    "after_pulse_probability": (-1, 30),
+    "dark_count_rate": (-500, 10000),
+    "after_pulse_probability": (-10, 20),
 }
 
 st.header("📊 参数直方图")
@@ -256,7 +262,11 @@ if len(selected_run_ids) >= 2:
     cols = st.columns(len(outlier_columns))
     for i, col_name in enumerate(outlier_columns):
         with cols[i]:
-            fig = plot_histogram_compare(compare_dfs, col_name, nbins=bin_count, x_range=HIST_XRANGE.get(col_name))
+            fig = plot_histogram_compare(
+                compare_dfs, col_name, nbins=bin_count,
+                title=HIST_TITLES.get(col_name),
+                x_range=HIST_XRANGE.get(col_name),
+            )
             st.plotly_chart(fig, width="stretch", key=f"hist_cmp_{col_name}")
 else:
     cols = st.columns(len(outlier_columns))
@@ -268,40 +278,10 @@ else:
                 filtered_df, col_name,
                 nbins=bin_count, show_kde=show_kde,
                 outlier_mask=mask,
+                title=HIST_TITLES.get(col_name),
                 x_range=HIST_XRANGE.get(col_name),
             )
             st.plotly_chart(fig, width="stretch", key=f"hist_{col_name}")
-
-# ── 3D 参数空间分布图 ───────────────────────────────────────────
-
-st.header("🌐 三维参数空间分布图")
-
-color_by_options = []
-for opt in ["pmt_id", "run_id"]:
-    if opt in filtered_df.columns:
-        color_by_options.append(opt)
-color_by = st.selectbox("颜色映射", options=color_by_options, index=0, key="color_by_3d") if color_by_options else None
-
-if color_by and len(filtered_df) > 0:
-    fig_3d = plot_3d_scatter(filtered_df, color_by=color_by)
-    click_data = st.plotly_chart(fig_3d, width="stretch", key="3d_scatter")
-
-    selected_points = st.session_state.get("3d_scatter", {}).get("selection", {}).get("points", [])
-    if selected_points:
-        st.subheader("📌 选中数据点详情")
-        point_indices = []
-        for p in selected_points:
-            idx = p.get("point_index")
-            if idx is not None and idx < len(filtered_df):
-                point_indices.append(idx)
-        if point_indices:
-            st.dataframe(
-                filtered_df.iloc[point_indices],
-                width="stretch",
-                hide_index=True,
-            )
-else:
-    st.info("无可用数据或颜色映射字段缺失。")
 
 # ── 参数 vs PMT ID 趋势散点图 ───────────────────────────────────
 
@@ -345,3 +325,34 @@ else:
 
 if len(selected_run_ids) >= 2:
     st.success(f"✅ 多 Run 对比模式已启用：同时对 {', '.join(selected_run_ids)} 进行对比")
+
+# ── 3D 参数空间分布图 ───────────────────────────────────────────
+
+st.header("🌐 三维参数空间分布图")
+
+color_by_options = []
+for opt in ["pmt_id", "run_id"]:
+    if opt in filtered_df.columns:
+        color_by_options.append(opt)
+color_by = st.selectbox("颜色映射", options=color_by_options, index=0, key="color_by_3d") if color_by_options else None
+
+if color_by and len(filtered_df) > 0:
+    fig_3d = plot_3d_scatter(filtered_df, color_by=color_by)
+    click_data = st.plotly_chart(fig_3d, width="stretch", key="3d_scatter")
+
+    selected_points = st.session_state.get("3d_scatter", {}).get("selection", {}).get("points", [])
+    if selected_points:
+        st.subheader("📌 选中数据点详情")
+        point_indices = []
+        for p in selected_points:
+            idx = p.get("point_index")
+            if idx is not None and idx < len(filtered_df):
+                point_indices.append(idx)
+        if point_indices:
+            st.dataframe(
+                filtered_df.iloc[point_indices],
+                width="stretch",
+                hide_index=True,
+            )
+else:
+    st.info("无可用数据或颜色映射字段缺失。")
