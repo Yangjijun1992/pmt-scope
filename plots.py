@@ -211,8 +211,14 @@ def plot_3d_scatter(
     color_by: str = "pmt_id",
     title: str = "三维参数空间分布",
 ) -> go.Figure:
-    """绘制三维参数空间散点图。"""
-    plot_df = df[["spe_gain", "dark_count_rate", "after_pulse_probability", color_by]].dropna().copy()
+    """绘制三维参数空间散点图。
+
+    只展示有 after_pulse_probability 数据的 PMT；
+    spe_gain / dark_count_rate 缺失的用 0 占位并在悬停提示中标注。
+    """
+    plot_df = df[df["after_pulse_probability"].notna()].copy()
+    plot_df["spe_gain"] = plot_df["spe_gain"].fillna(0)
+    plot_df["dark_count_rate"] = plot_df["dark_count_rate"].fillna(0)
     plot_df["after_pulse_probability"] = plot_df["after_pulse_probability"] * 100
 
     for col in ["pmt_id", "run_id", "hv"]:
