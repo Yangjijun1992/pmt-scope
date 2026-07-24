@@ -31,8 +31,6 @@ COLOR_APP = "#4C78A8"
 def _scale_column(df: pd.DataFrame, column: str) -> pd.Series:
     if column == "after_pulse_probability":
         return df[column] * 100
-    if column == "spe_gain":
-        return df[column] * 1e6
     return df[column]
 
 
@@ -215,7 +213,6 @@ def plot_3d_scatter(
 ) -> go.Figure:
     """绘制三维参数空间散点图。"""
     plot_df = df[["spe_gain", "dark_count_rate", "after_pulse_probability", color_by]].dropna().copy()
-    plot_df["spe_gain"] = plot_df["spe_gain"] * 1e6
     plot_df["after_pulse_probability"] = plot_df["after_pulse_probability"] * 100
 
     for col in ["pmt_id", "run_id", "hv"]:
@@ -239,7 +236,7 @@ def plot_3d_scatter(
     )
     fig.update_traces(
         hovertemplate=(
-            "Gain: %{x:.2e} [e⁻]<br>"
+            "Gain: %{x:.2f} [e⁻]<br>"
             "Dark Rate: %{y:.1f} [Hz]<br>"
             "After Pulse: %{z:.4f} [%]<br>"
             "pmt_id: %{customdata[0]}<br>"
