@@ -1,3 +1,4 @@
+from typing import List
 """PMTscope 工具函数模块 — 统计计算与离群点检测"""
 
 import numpy as np
@@ -50,7 +51,7 @@ def detect_outliers(
 
 def detect_outliers_df(
     df: pd.DataFrame,
-    columns: list[str],
+    columns: List[str],
     method: Literal["sigma", "iqr"] = "iqr",
     multiplier: float = 1.5,
 ) -> pd.DataFrame:

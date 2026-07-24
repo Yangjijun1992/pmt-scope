@@ -5,7 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SQLITE_DB="/mnt/data/TPC/database/pmt_data.db"
+# SQLITE_DB="/mnt/data/TPC/database/pmt_data.db"
+SQLITE_DB="/home/yjj/pmtdatabase/pmt-data-client/data/pmt_data.db"
 SQLITE_TABLE="measurements"
 CSV_OUTPUT="$SCRIPT_DIR/data/pmt_data.csv"
 

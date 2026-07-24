@@ -112,12 +112,12 @@ with st.sidebar:
 
     hv_min = 500.0
     hv_max = 2000.0
-    actual_hv_min = float(raw_df["hv"].min()) if "hv" in raw_df.columns else hv_min
-    actual_hv_max = float(raw_df["hv"].max()) if "hv" in raw_df.columns else hv_max
+    actual_hv_min = float(raw_df["hv"].min()) if "hv" in raw_df.columns and raw_df["hv"].notna().any() else hv_min
+    actual_hv_max = float(raw_df["hv"].max()) if "hv" in raw_df.columns and raw_df["hv"].notna().any() else hv_max
     hv_range = st.slider(
         "高压值 (HV) 范围",
-        min_value=hv_min, max_value=hv_max,
-        value=(max(actual_hv_min, hv_min), min(actual_hv_max, hv_max)),
+        min_value=float(actual_hv_min), max_value=float(actual_hv_max),
+        value=(float(actual_hv_min), float(actual_hv_max)),
         step=1.0,
     )
 
@@ -248,9 +248,9 @@ HIST_TITLES = {
 }
 
 HIST_XRANGE = {
-    "spe_gain": (-5, 20),
-    "dark_count_rate": (-500, 10000),
-    "after_pulse_probability": (-10, 20),
+    "spe_gain": (0, 15),
+    "dark_count_rate": (0, 5000),
+    "after_pulse_probability": (0, 20),
 }
 
 st.header("📊 参数直方图")

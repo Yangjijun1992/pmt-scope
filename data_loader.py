@@ -3,7 +3,7 @@
 import os
 import sqlite3
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple, List, Dict
 
 import pandas as pd
 import yaml
@@ -68,12 +68,12 @@ def _clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
 def filter_data(
     df: pd.DataFrame,
-    hv_range: Optional[tuple[float, float]] = None,
-    run_ids: Optional[list[str]] = None,
-    pmt_ids: Optional[list[str]] = None,
-    run_types: Optional[list[str]] = None,
-    run_tags: Optional[list[str]] = None,
-    time_range: Optional[tuple[datetime, datetime]] = None,
+    hv_range: Optional[Tuple[float, float]] = None,
+    run_ids: Optional[List[str]] = None,
+    pmt_ids: Optional[List[str]] = None,
+    run_types: Optional[List[str]] = None,
+    run_tags: Optional[List[str]] = None,
+    time_range: Optional[Tuple[datetime, datetime]] = None,
 ) -> pd.DataFrame:
     """按指定条件过滤 DataFrame。"""
     result = df.copy()
@@ -118,10 +118,10 @@ def query_records(
     return result[mask].reset_index(drop=True)
 
 
-def parse_query_string(query_str: str) -> dict[str, Optional[str]]:
+def parse_query_string(query_str: str) -> Dict[str, Optional[str]]:
     """解析查询字符串，支持逗号分隔的 pmt_id 和 run_id 组合。"""
     parts = [p.strip() for p in query_str.split(",") if p.strip()]
-    result: dict[str, Optional[str]] = {"pmt_id": None, "run_id": None}
+    result: Dict[str, Optional[str]] = {"pmt_id": None, "run_id": None}
     for part in parts:
         if "=" in part:
             key, val = part.split("=", 1)
