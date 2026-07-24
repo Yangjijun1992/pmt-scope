@@ -356,3 +356,18 @@ if color_by and len(filtered_df) > 0:
             )
 else:
     st.info("无可用数据或颜色映射字段缺失。")
+
+# ── PMT 候选汇总表 ─────────────────────────────────────────
+
+st.divider()
+st.header("📋 PMT 候选筛选汇总")
+
+rows = [
+    {"Case": 1, "Dark Rate": "< 1000 Hz", "SPE Gain": "> 5",      "APP": "< 5%", "候选数": 19,  "数据全集": 46,  "比例": "41.3%"},
+    {"Case": 2, "Dark Rate": "< 1500 Hz", "SPE Gain": "> 2",      "APP": "—",    "候选数": 111, "数据全集": 146, "比例": "76.0%"},
+    {"Case": 3, "Dark Rate": "< 2000 Hz", "SPE Gain": "> 2",      "APP": "—",    "候选数": 118, "数据全集": 146, "比例": "80.8%"},
+    {"Case": 4, "Dark Rate": "< 1000 Hz", "SPE Gain": "> 2",      "APP": "—",    "候选数": 91,  "数据全集": 146, "比例": "62.3%"},
+]
+summary_df = pd.DataFrame(rows)
+st.dataframe(summary_df, width="stretch", hide_index=True)
+st.caption("数据源：pmt-data-client/data/pmt_data.db · 总 PMT 数 146，APP 数据仅 46 个 PMT")
