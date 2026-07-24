@@ -308,6 +308,9 @@ else:
     for col_name in outlier_columns:
         outlier_col = f"{col_name}_outlier"
         mask = filtered_df[outlier_col] if outlier_col in filtered_df.columns else None
+        # spe_gain 不传 outlier_mask
+        if col_name == "spe_gain":
+            mask = None
         fig = plot_trend_scatter(
             filtered_df, col_name,
             center_method=center_method,

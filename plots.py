@@ -268,7 +268,10 @@ def plot_trend_scatter(
 ) -> go.Figure:
     """绘制参数 vs. PMT ID 趋势散点图。
 
+    spe_gain / dark_count_rate 直接使用 df[y_column] 原始值。
     dark_count_rate 使用三种形状（圆/三角形/叉号），>2000 Hz 标注 pmt_id。
+    spe_gain 不标记离群点。
+    after_pulse_probability ×100 后仅正常+离群点标记。
     """
     if title is None:
         title = f"{y_column} vs PMT ID"
@@ -277,15 +280,17 @@ def plot_trend_scatter(
 
     valid = df[y_column].notna()
     plot_df = df[valid].copy()
-    plot_df = plot_df.sort_values("pmt_id")
+    plot_df.sort_values("pmt_id", inplace=True)
 
     fig = go.Figure()
 
-    series = _scale_column(plot_df, y_column).dropna()
-    center_val = compute_center(series, method=center_method)
-    display_y = _scale_column(plot_df, y_column)
+    # ── 计算中心值：原始值（APP 需 ×100）──
+    if y_column == "after_pulse_probability":
+        center_val = compute_center(plot_df[y_column] * 100, method=center_method)
+    else:
+        center_val = compute_center(plot_df[y_column], method=center_method)
 
-    # ── dark_count_rate: 三分组形状 ──
+    # ── dark_count_rate: 三分组形状，用原始值 ──
     if y_column == "dark_count_rate":
         for mask_fn, color, marker, label in [
             (lambda v: v < DCR_LOW, COLOR_LOW, "circle", f"< {DCR_LOW:.0f} Hz"),
@@ -295,12 +300,11 @@ def plot_trend_scatter(
             subset = plot_df[mask_fn(plot_df[y_column])].copy()
             if len(subset) == 0:
                 continue
-            sy = _scale_column(subset, y_column)
             cd = subset[["run_id", "hv", "temperature", "notes"]].fillna("").values
             is_high = label.startswith(">")
             fig.add_trace(go.Scatter(
                 x=subset["pmt_id"].astype(str),
-                y=sy,
+                y=subset[y_column],
                 mode="markers+text" if is_high else "markers",
                 name=label,
                 marker=dict(color=color, symbol=marker, size=10, line=dict(width=1, color=color)),
@@ -318,26 +322,46 @@ def plot_trend_scatter(
                 ),
             ))
 
-    # ── spe_gain / after_pulse_probability: 正常 + 离群点 ──
+    # ── spe_gain: 直接原始值，不标记离群点 ──
+    elif y_column == "spe_gain":
+        cd = plot_df[["run_id", "hv", "temperature", "notes"]].fillna("").values
+        fig.add_trace(go.Scatter(
+            x=plot_df["pmt_id"].astype(str),
+            y=plot_df[y_column],
+            mode="markers",
+            name="数据点",
+            marker=dict(color=COLOR_GAIN, size=8),
+            customdata=cd,
+            hovertemplate=(
+                f"pmt_id: %{{x}}<br>"
+                f"{y_label}: %{{y:.2f}}<br>"
+                "run_id: %{customdata[0]}<br>"
+                "hv: %{customdata[1]}<br>"
+                "temperature: %{customdata[2]}<br>"
+                "notes: %{customdata[3]}<extra></extra>"
+            ),
+        ))
+
+    # ── after_pulse_probability: ×100 显示，正常+离群点 ──
     else:
+        plot_df["app_pct"] = plot_df[y_column] * 100
         normal = plot_df.copy()
         outlier = pd.DataFrame()
         if outlier_mask is not None and len(outlier_mask) == len(plot_df):
             outlier = plot_df[outlier_mask.loc[plot_df.index].values]
             normal = plot_df[~outlier_mask.loc[plot_df.index].values]
 
-        normal_y = _scale_column(normal, y_column)
-        customdata_n = normal[["run_id", "hv", "temperature", "notes"]].fillna("").values
+        cd_n = normal[["run_id", "hv", "temperature", "notes"]].fillna("").values
         fig.add_trace(go.Scatter(
             x=normal["pmt_id"].astype(str),
-            y=normal_y,
+            y=normal["app_pct"],
             mode="markers",
             name="正常",
             marker=dict(color=COLOR_GAIN, size=8),
-            customdata=customdata_n,
+            customdata=cd_n,
             hovertemplate=(
                 f"pmt_id: %{{x}}<br>"
-                f"{y_label}: %{{y}}<br>"
+                f"{y_label}: %{{y:.2f}}%<br>"
                 "run_id: %{customdata[0]}<br>"
                 "hv: %{customdata[1]}<br>"
                 "temperature: %{customdata[2]}<br>"
@@ -346,21 +370,20 @@ def plot_trend_scatter(
         ))
 
         if len(outlier) > 0:
-            outlier_y_scaled = _scale_column(outlier, y_column)
-            customdata_o = outlier[["run_id", "hv", "temperature", "notes"]].fillna("").values
+            cd_o = outlier[["run_id", "hv", "temperature", "notes"]].fillna("").values
             fig.add_trace(go.Scatter(
                 x=outlier["pmt_id"].astype(str),
-                y=outlier_y_scaled,
+                y=outlier["app_pct"],
                 mode="markers+text" if show_outlier_labels else "markers",
                 name="离群点",
                 marker=dict(color=COLOR_HIGH, size=12, symbol="x", line=dict(width=2, color=COLOR_HIGH)),
                 text=outlier["pmt_id"].astype(str) if show_outlier_labels else None,
                 textposition="top center",
                 textfont=dict(color=COLOR_HIGH, size=9),
-                customdata=customdata_o,
+                customdata=cd_o,
                 hovertemplate=(
                     f"pmt_id: %{{x}}<br>"
-                    f"{y_label}: %{{y}}<br>"
+                    f"{y_label}: %{{y:.2f}}%<br>"
                     "run_id: %{customdata[0]}<br>"
                     "hv: %{customdata[1]}<br>"
                     "temperature: %{customdata[2]}<br>"
