@@ -337,6 +337,7 @@ color_by = st.selectbox("颜色映射", options=color_by_options, index=0, key="
 
 if color_by and len(filtered_df) > 0:
     fig_3d = plot_3d_scatter(filtered_df, color_by=color_by)
+    fig_3d.update_layout(height=700)
     click_data = st.plotly_chart(fig_3d, width="stretch", key="3d_scatter")
 
     selected_points = st.session_state.get("3d_scatter", {}).get("selection", {}).get("points", [])
