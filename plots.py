@@ -213,30 +213,41 @@ def plot_3d_scatter(
 ) -> go.Figure:
     """绘制三维参数空间散点图。
 
-    只展示有 after_pulse_probability 数据的 PMT；
-    spe_gain / dark_count_rate 缺失的用 0 占位并在悬停提示中标注。
+    只展示有 after_pulse_probability 数据的 PMT，
+    按 pmt_id 聚合取均值后展示 spe_gain / dark_count_rate / after_pulse_probability。
     """
-    plot_df = df[df["after_pulse_probability"].notna()].copy()
-    plot_df["spe_gain"] = plot_df["spe_gain"].fillna(0)
-    plot_df["dark_count_rate"] = plot_df["dark_count_rate"].fillna(0)
-    plot_df["after_pulse_probability"] = plot_df["after_pulse_probability"] * 100
+    ap_df = df[df["after_pulse_probability"].notna()].copy()
+    pmt_ids_with_ap = ap_df["pmt_id"].unique()
+    plot_df = df[df["pmt_id"].isin(pmt_ids_with_ap)].copy()
 
-    for col in ["pmt_id", "run_id", "hv"]:
-        if col in df.columns:
-            plot_df[col] = df.loc[plot_df.index, col]
+    agg = plot_df.groupby("pmt_id", as_index=False).agg({
+        "spe_gain": "mean",
+        "dark_count_rate": "mean",
+        "after_pulse_probability": "mean",
+    })
+    agg["after_pulse_probability"] = agg["after_pulse_probability"] * 100
 
-        fig = px.scatter_3d(
-            plot_df,
-            x="spe_gain",
-            y="dark_count_rate",
-            z="after_pulse_probability",
-            color=color_by,
-            title=title,
-            labels={
-    "spe_gain": "Gain [1.E6 e⁻]",
-                "dark_count_rate": "Dark Rate [Hz]",
-                "after_pulse_probability": "After Pulse Probability [%]",
-            },
+    # merge back extra columns for hover
+    extra_cols = ["run_id", "hv", "temperature", "notes"]
+    for c in extra_cols:
+        if c in plot_df.columns:
+            latest = plot_df.groupby("pmt_id")[c].last().reset_index()
+            agg = agg.merge(latest, on="pmt_id", how="left")
+
+    plot_df = agg
+
+    fig = px.scatter_3d(
+        plot_df,
+        x="spe_gain",
+        y="dark_count_rate",
+        z="after_pulse_probability",
+        color=color_by,
+        title=title,
+        labels={
+            "spe_gain": "Gain [1.E6 e⁻]",
+            "dark_count_rate": "Dark Rate [Hz]",
+            "after_pulse_probability": "After Pulse Probability [%]",
+        },
         opacity=0.8,
         custom_data=["pmt_id", "run_id", "hv"] if all(c in plot_df.columns for c in ["pmt_id", "run_id", "hv"]) else None,
     )
