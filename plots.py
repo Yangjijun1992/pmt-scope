@@ -11,7 +11,7 @@ from plotly.subplots import make_subplots
 from utils import compute_center, detect_outliers_df
 
 LABELS = {
-    "spe_gain": "Gain [1.E6 e⁻]",
+    "spe_gain": "Gain [e⁻]",
     "dark_count_rate": "Dark Rate [Hz]",
     "after_pulse_probability": "APP [%]",
 }
@@ -31,6 +31,8 @@ COLOR_APP = "#4C78A8"
 def _scale_column(df: pd.DataFrame, column: str) -> pd.Series:
     if column == "after_pulse_probability":
         return df[column] * 100
+    if column == "spe_gain":
+        return df[column] * 1e6
     return df[column]
 
 
@@ -213,30 +215,31 @@ def plot_3d_scatter(
 ) -> go.Figure:
     """绘制三维参数空间散点图。"""
     plot_df = df[["spe_gain", "dark_count_rate", "after_pulse_probability", color_by]].dropna().copy()
+    plot_df["spe_gain"] = plot_df["spe_gain"] * 1e6
     plot_df["after_pulse_probability"] = plot_df["after_pulse_probability"] * 100
 
     for col in ["pmt_id", "run_id", "hv"]:
         if col in df.columns:
             plot_df[col] = df.loc[plot_df.index, col]
 
-    fig = px.scatter_3d(
-        plot_df,
-        x="spe_gain",
-        y="dark_count_rate",
-        z="after_pulse_probability",
-        color=color_by,
-        title=title,
-        labels={
-            "spe_gain": "Gain [1.E6 e⁻]",
-            "dark_count_rate": "Dark Rate [Hz]",
-            "after_pulse_probability": "After Pulse Probability [%]",
-        },
+        fig = px.scatter_3d(
+            plot_df,
+            x="spe_gain",
+            y="dark_count_rate",
+            z="after_pulse_probability",
+            color=color_by,
+            title=title,
+            labels={
+                "spe_gain": "Gain [e⁻]",
+                "dark_count_rate": "Dark Rate [Hz]",
+                "after_pulse_probability": "After Pulse Probability [%]",
+            },
         opacity=0.8,
         custom_data=["pmt_id", "run_id", "hv"] if all(c in plot_df.columns for c in ["pmt_id", "run_id", "hv"]) else None,
     )
     fig.update_traces(
         hovertemplate=(
-            "Gain: %{x:.2f} [1.E6 e⁻]<br>"
+            "Gain: %{x:.2e} [e⁻]<br>"
             "Dark Rate: %{y:.1f} [Hz]<br>"
             "After Pulse: %{z:.4f} [%]<br>"
             "pmt_id: %{customdata[0]}<br>"

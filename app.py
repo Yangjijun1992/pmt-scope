@@ -248,7 +248,7 @@ HIST_TITLES = {
 }
 
 HIST_XRANGE = {
-    "spe_gain": (0, 15),
+    "spe_gain": (0, 3e7),
     "dark_count_rate": (0, 5000),
     "after_pulse_probability": (0, 20),
 }
@@ -288,7 +288,7 @@ else:
 st.header("📈 参数 vs. PMT ID 趋势散点图")
 
 y_labels = {
-    "spe_gain": "Gain [1.E6 e⁻]",
+    "spe_gain": "Gain [e⁻]",
     "dark_count_rate": "Dark Rate [Hz]",
     "after_pulse_probability": "After Pulse Probability [%]",
 }

@@ -18,7 +18,7 @@ import pandas as pd
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "pmt-data-client", "data", "pmt_data.db")
 FIGS_DIR = os.path.join(os.path.dirname(__file__), "figs")
-GAIN_X_MIN, GAIN_X_MAX = 0.0, 15.0
+GAIN_X_MIN, GAIN_X_MAX = 0.0, 3e7
 GAIN_BINS = 30
 SIGMA_MULTIPLIER = 3.0
 
@@ -39,6 +39,7 @@ def load_data(db_path: str) -> pd.DataFrame:
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
+    df["spe_gain"] = df["spe_gain"] * 1e6
     df.sort_values("pmt_id", inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
@@ -50,7 +51,7 @@ def plot_histogram(df: pd.DataFrame, out_path: str):
     ax.hist(df["spe_gain"], bins=GAIN_BINS, color=COLOR_BAR, alpha=0.85,
             edgecolor="white", linewidth=0.8)
 
-    ax.set_xlabel("Gain [1.E6 e$^{-}$]", fontsize=16, x=0.94, ha="right")
+    ax.set_xlabel("Gain [e$^{-}$]", fontsize=16, x=0.94, ha="right")
     ax.set_ylabel("Counts", fontsize=16)
     ax.set_title("SPE Gain Distribution", fontsize=18, fontweight="bold")
     ax.set_xlim(GAIN_X_MIN, GAIN_X_MAX)
@@ -101,12 +102,12 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
 
     # Median line
     ax.axhline(median_val, color=COLOR_MEDIAN, linestyle="--", linewidth=1.5,
-               label=f"Median: {median_val:.2f}", zorder=1)
+               label=f"Median: {median_val:.2e}", zorder=1)
 
     ax.set_xticks(list(x_pos))
     ax.set_xticklabels(df["pmt_id"], rotation=90, fontsize=5)
     ax.set_xlabel("PMT ID", fontsize=12)
-    ax.set_ylabel("Gain [1.E6 e$^{-}$]", fontsize=12)
+    ax.set_ylabel("Gain [e$^{-}$]", fontsize=12)
     ax.set_title("SPE Gain vs PMT ID", fontsize=14, fontweight="bold")
     ax.legend(loc="upper left", fontsize=10)
     ax.grid(axis="y", alpha=0.3)
@@ -122,10 +123,10 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
 def main():
     df = load_data(DB_PATH)
     print(f"Loaded {len(df)} PMTs with SPE gain")
-    print(f"  Gain range:  {df['spe_gain'].min():.2f} – {df['spe_gain'].max():.2f}")
-    print(f"  Gain mean:   {df['spe_gain'].mean():.2f}")
-    print(f"  Gain median: {df['spe_gain'].median():.2f}")
-    print(f"  Gain std:    {df['spe_gain'].std():.2f}")
+    print(f"  Gain range:  {df['spe_gain'].min():.2e} – {df['spe_gain'].max():.2e}")
+    print(f"  Gain mean:   {df['spe_gain'].mean():.2e}")
+    print(f"  Gain median: {df['spe_gain'].median():.2e}")
+    print(f"  Gain std:    {df['spe_gain'].std():.2e}")
 
     out_hist = os.path.join(FIGS_DIR, "gain_histogram.png")
     out_scatter = os.path.join(FIGS_DIR, "gain_scatter.png")
