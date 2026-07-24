@@ -11,7 +11,7 @@ from plotly.subplots import make_subplots
 from utils import compute_center, detect_outliers_df
 
 LABELS = {
-    "spe_gain": "Gain [e⁻]",
+    "spe_gain": "Gain [1.E6 e⁻]",
     "dark_count_rate": "Dark Rate [Hz]",
     "after_pulse_probability": "APP [%]",
 }
@@ -120,20 +120,20 @@ def plot_histogram(
 
         y_title = "Counts"
 
-    # ── spe_gain: 单色 ──
+    # ── spe_gain: 单色，直接用原始值 ──
     else:
-        series = _scale_column(df, column).dropna()
+        vals = df[column].dropna()
         if outlier_mask is not None and len(outlier_mask) == len(df):
             normal_idx = df.index[~outlier_mask]
             outlier_idx = df.index[outlier_mask]
-            normal_vals = _scale_column(df.loc[normal_idx.intersection(series.index)], column).dropna()
-            outlier_vals = _scale_column(df.loc[outlier_idx.intersection(series.index)], column).dropna()
+            normal_vals = df.loc[normal_idx, column].dropna()
+            outlier_vals = df.loc[outlier_idx, column].dropna()
             if len(normal_vals) > 0:
                 fig.add_trace(go.Histogram(x=normal_vals, nbinsx=nbins, name="正常", marker_color="steelblue"))
             if len(outlier_vals) > 0:
                 fig.add_trace(go.Histogram(x=outlier_vals, nbinsx=nbins, name="离群点", marker_color="red"))
         else:
-            fig.add_trace(go.Histogram(x=series, nbinsx=nbins, name="分布", marker_color=COLOR_GAIN))
+            fig.add_trace(go.Histogram(x=vals, nbinsx=nbins, name="分布", marker_color=COLOR_GAIN))
 
         y_title = "Counts"
 
@@ -227,7 +227,7 @@ def plot_3d_scatter(
             color=color_by,
             title=title,
             labels={
-                "spe_gain": "Gain [e⁻]",
+    "spe_gain": "Gain [1.E6 e⁻]",
                 "dark_count_rate": "Dark Rate [Hz]",
                 "after_pulse_probability": "After Pulse Probability [%]",
             },

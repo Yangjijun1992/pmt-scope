@@ -288,7 +288,7 @@ else:
 st.header("📈 参数 vs. PMT ID 趋势散点图")
 
 y_labels = {
-    "spe_gain": "Gain [e⁻]",
+    "spe_gain": "Gain [1.E6 e⁻]",
     "dark_count_rate": "Dark Rate [Hz]",
     "after_pulse_probability": "After Pulse Probability [%]",
 }
@@ -297,29 +297,25 @@ if len(selected_run_ids) >= 2:
     compare_dfs = {}
     for rid in selected_run_ids:
         compare_dfs[rid] = filtered_df[filtered_df["run_id"] == rid]
-    cols = st.columns(len(outlier_columns))
-    for i, col_name in enumerate(outlier_columns):
-        with cols[i]:
-            fig = plot_trend_compare(
-                compare_dfs, col_name,
-                center_method=center_method,
-                y_label=y_labels.get(col_name, col_name),
-            )
-            st.plotly_chart(fig, width="stretch", key=f"trend_cmp_{col_name}")
+    for col_name in outlier_columns:
+        fig = plot_trend_compare(
+            compare_dfs, col_name,
+            center_method=center_method,
+            y_label=y_labels.get(col_name, col_name),
+        )
+        st.plotly_chart(fig, width="stretch", key=f"trend_cmp_{col_name}")
 else:
-    cols = st.columns(len(outlier_columns))
-    for i, col_name in enumerate(outlier_columns):
-        with cols[i]:
-            outlier_col = f"{col_name}_outlier"
-            mask = filtered_df[outlier_col] if outlier_col in filtered_df.columns else None
-            fig = plot_trend_scatter(
-                filtered_df, col_name,
-                center_method=center_method,
-                outlier_mask=mask,
-                show_outlier_labels=enable_outlier,
-                y_label=y_labels.get(col_name, col_name),
-            )
-            st.plotly_chart(fig, width="stretch", key=f"trend_{col_name}")
+    for col_name in outlier_columns:
+        outlier_col = f"{col_name}_outlier"
+        mask = filtered_df[outlier_col] if outlier_col in filtered_df.columns else None
+        fig = plot_trend_scatter(
+            filtered_df, col_name,
+            center_method=center_method,
+            outlier_mask=mask,
+            show_outlier_labels=enable_outlier,
+            y_label=y_labels.get(col_name, col_name),
+        )
+        st.plotly_chart(fig, width="stretch", key=f"trend_{col_name}")
 
 # ── 多 Run 对比控制 ─────────────────────────────────────────────
 
