@@ -1,13 +1,16 @@
 """plot_gain.py — SPE Gain 独立绘图脚本
 
-图1: 直方图，bins=35，x_range=[-5, 30]
-图2: vs PMT ID 散点图，中位数虚线，3σ 离群点标注
+图1: 直方图，bins=30，x_range=[0, 20]，去除 hv > 800V 数据
+图2: vs PMT ID 散点图，3σ 离群点标注
+     - xr* run_id: 三角形 (^)
+     - 纯数字 run_id: 圆形 (o)
 
 数据源: ../pmt-data-client/data/pmt_data.db
 输出: figs/gain_histogram.png, figs/gain_scatter.png
 """
 
 import os
+import re
 import sqlite3
 
 import matplotlib
@@ -24,7 +27,8 @@ SIGMA_MULTIPLIER = 3.0
 
 COLOR_BAR = "#4C78A8"
 COLOR_MEDIAN = "#333333"
-COLOR_SCATTER = "#2B6FB3"
+COLOR_XR = "#D62728"
+COLOR_NUM = "#2B6FB3"
 COLOR_OUTLIER = "#D62728"
 
 
@@ -32,14 +36,25 @@ def load_data(db_path: str) -> pd.DataFrame:
     conn = sqlite3.connect(db_path)
     query = """
         SELECT pmt_id,
+               channel_id,
+               run_id,
+               hv,
                AVG(spe_gain) AS spe_gain
         FROM measurements
         WHERE spe_gain IS NOT NULL
-        GROUP BY pmt_id
+        GROUP BY pmt_id, channel_id, run_id
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
-    df.sort_values("pmt_id", inplace=True)
+
+    # Remove records with hv > 800V
+    df = df[df["hv"] <= 800].copy()
+
+    df["run_type"] = df["run_id"].apply(
+        lambda x: "xr" if bool(re.match(r"^xr", str(x))) else "numeric"
+    )
+
+    df.sort_values(["pmt_id", "channel_id", "run_type"], inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
 
@@ -52,7 +67,7 @@ def plot_histogram(df: pd.DataFrame, out_path: str):
 
     ax.set_xlabel("Gain [e$^{-}$]", fontsize=16, x=0.94, ha="right")
     ax.set_ylabel("Counts", fontsize=16)
-    ax.set_title("SPE Gain Distribution", fontsize=18, fontweight="bold")
+    ax.set_title("SPE Gain Distribution (hv ≤ 800 V)", fontsize=18, fontweight="bold")
     ax.set_xlim(GAIN_X_MIN, GAIN_X_MAX)
     ax.tick_params(axis="both", labelsize=14)
     ax.grid(axis="y", alpha=0.3)
@@ -76,23 +91,37 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
 
     fig, ax = plt.subplots(figsize=(18, 6))
 
-    x_pos = range(len(df))
+    xr_normal = df[(df["run_type"] == "xr") & is_normal]
+    xr_outlier = df[(df["run_type"] == "xr") & is_outlier]
+    num_normal = df[(df["run_type"] == "numeric") & is_normal]
+    num_outlier = df[(df["run_type"] == "numeric") & is_outlier]
 
-    # Normal points
-    normal_mask = is_normal.values
-    normal_indices = [i for i, m in enumerate(normal_mask) if m]
-    ax.scatter(normal_indices, df.loc[normal_indices, "spe_gain"],
-               c=COLOR_SCATTER, marker="o", s=35, zorder=2, label="Normal")
+    # xr tested — triangle
+    if len(xr_normal) > 0:
+        ax.scatter(xr_normal.index, xr_normal["spe_gain"],
+                   c=COLOR_XR, marker="^", s=50, zorder=3, alpha=0.85,
+                   edgecolors="white", linewidths=0.3,
+                   label=f"xr tested (n={len(xr_normal)})")
+    if len(xr_outlier) > 0:
+        ax.scatter(xr_outlier.index, xr_outlier["spe_gain"],
+                   c=COLOR_XR, marker="^", s=80, zorder=5, alpha=0.85,
+                   edgecolors="white", linewidths=0.3,
+                   label=f"xr tested outlier (n={len(xr_outlier)})")
 
-    # Outlier points
-    outlier_mask = is_outlier.values
-    outlier_indices = [i for i, m in enumerate(outlier_mask) if m]
-    if outlier_indices:
-        ax.scatter(outlier_indices, df.loc[outlier_indices, "spe_gain"],
-                   c=COLOR_OUTLIER, marker="x", s=80, zorder=5, linewidths=1.5,
-                   label=f"Outlier ($3\\sigma$)")
+    # westlake tested — circle
+    if len(num_normal) > 0:
+        ax.scatter(num_normal.index, num_normal["spe_gain"],
+                   c=COLOR_NUM, marker="o", s=40, zorder=2, alpha=0.85,
+                   edgecolors="white", linewidths=0.3,
+                   label=f"westlake tested (n={len(num_normal)})")
+    if len(num_outlier) > 0:
+        ax.scatter(num_outlier.index, num_outlier["spe_gain"],
+                   c=COLOR_NUM, marker="o", s=70, zorder=4, alpha=0.85,
+                   edgecolors="white", linewidths=0.3,
+                   label=f"westlake tested outlier (n={len(num_outlier)})")
 
     # Annotate outliers
+    outlier_indices = df[is_outlier].index
     for i in outlier_indices:
         val = df.loc[i, "spe_gain"]
         pid = df.loc[i, "pmt_id"]
@@ -103,12 +132,12 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
     ax.axhline(median_val, color=COLOR_MEDIAN, linestyle="--", linewidth=1.5,
                label=f"Median: {median_val:.2f}", zorder=1)
 
-    ax.set_xticks(list(x_pos))
+    ax.set_xticks(range(len(df)))
     ax.set_xticklabels(df["pmt_id"], rotation=90, fontsize=5)
     ax.set_xlabel("PMT ID", fontsize=12)
     ax.set_ylabel("Gain [e$^{-}$]", fontsize=12)
     ax.set_title("SPE Gain vs PMT ID", fontsize=14, fontweight="bold")
-    ax.legend(loc="upper left", fontsize=10)
+    ax.legend(loc="upper left", fontsize=9)
     ax.grid(axis="y", alpha=0.3)
     ax.set_xlim(-0.5, len(df) - 0.5)
 
@@ -121,11 +150,13 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
 
 def main():
     df = load_data(DB_PATH)
-    print(f"Loaded {len(df)} PMTs with SPE gain")
-    print(f"  Gain range:  {df['spe_gain'].min():.2f} – {df['spe_gain'].max():.2f}")
-    print(f"  Gain mean:   {df['spe_gain'].mean():.2f}")
-    print(f"  Gain median: {df['spe_gain'].median():.2f}")
-    print(f"  Gain std:    {df['spe_gain'].std():.2f}")
+    print(f"Loaded {len(df)} records (hv ≤ 800 V) with SPE gain")
+    print(f"  xr tested:        {len(df[df['run_type'] == 'xr'])}")
+    print(f"  westlake tested:  {len(df[df['run_type'] == 'numeric'])}")
+    print(f"  Gain range:       {df['spe_gain'].min():.2f} – {df['spe_gain'].max():.2f}")
+    print(f"  Gain mean:        {df['spe_gain'].mean():.2f}")
+    print(f"  Gain median:      {df['spe_gain'].median():.2f}")
+    print(f"  Gain std:         {df['spe_gain'].std():.2f}")
 
     out_hist = os.path.join(FIGS_DIR, "gain_histogram.png")
     out_scatter = os.path.join(FIGS_DIR, "gain_scatter.png")

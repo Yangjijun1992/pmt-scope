@@ -199,7 +199,7 @@ filtered_df = filter_data(
 
 # ── 离群点检测 ──────────────────────────────────────────────────
 
-outlier_columns = ["spe_gain", "dark_count_rate", "after_pulse_probability"]
+outlier_columns = ["spe_gain", "dark_count_rate", "after_pulse_probability", "energy_resolution"]
 if enable_outlier:
     filtered_df = detect_outliers_df(
         filtered_df, outlier_columns,
@@ -245,12 +245,14 @@ HIST_TITLES = {
     "spe_gain": "SPE Gain Distribution",
     "dark_count_rate": "Dark Rate Distribution",
     "after_pulse_probability": "After Pulse Probability Distribution",
+    "energy_resolution": "Energy Resolution Distribution",
 }
 
 HIST_XRANGE = {
     "spe_gain": (0, 20),
     "dark_count_rate": (0, 5000),
     "after_pulse_probability": (0, 20),
+    "energy_resolution": (0, 1.5),
 }
 
 st.header("📊 参数直方图")
@@ -291,6 +293,7 @@ y_labels = {
     "spe_gain": "Gain [1.E6 e⁻]",
     "dark_count_rate": "Dark Rate [Hz]",
     "after_pulse_probability": "After Pulse Probability [%]",
+    "energy_resolution": "Energy Resolution",
 }
 
 if len(selected_run_ids) >= 2:

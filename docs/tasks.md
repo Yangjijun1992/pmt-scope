@@ -83,5 +83,50 @@
 阶段一 → 阶段二 (T2.1 → T2.2 → T2.3 → T2.4 → T2.5 → T2.6)
       → 阶段三 (T3.1 → T3.2 → T3.3 → T3.4 → T3.5 → T3.6)
       → 阶段四 (T4.1 → T4.2 → T4.3 → T4.4 → T4.5 → T4.6 → T4.7 → T4.8 → T4.9 → T4.10)
-      → 阶段五 (T5.1 → T5.2 → T5.3 → T5.4)
+       → 阶段五 (T5.1 → T5.2 → T5.3 → T5.4)
+
+---
+
+## 阶段六：网页端散点图升级（v3.0 — 2026-07-30）
+
+即将 Streamlit 网页端 `plot_trend_scatter` 所有三点图的画图风格，按照 `plot_*.py` 的规则进行修改和提升，保留每个数据点能显示 run 信息的功能。
+
+| 编号 | 任务 | 文件 | 优先级 | 状态 |
+|------|------|------|--------|------|
+| T6.1 | 同步 SQLite → CSV 数据 | `sync_and_deploy.sh` | P0 | ✅ |
+| T6.2 | SPE Gain 散点图：添加 run_type 区分（xr ▲ / westlake ●），过滤 hv > 800V | `plots.py` | P0 | ✅ |
+| T6.3 | DCR 散点图：添加 run_type 区分（xr ■ / westlake ●），westlake 同 pmt_id 取最小 DCR，1000Hz 虚线替代中位数线 | `plots.py` | P0 | ✅ |
+| T6.4 | APP 散点图：保持现有正常/离群点逻辑不变 | `plots.py` | P1 | ✅ |
+| T6.5 | `data_loader.py` REQUIRED_COLUMNS 添加 `energy_resolution` | `data_loader.py` | P0 | ✅ |
+| T6.6 | `app.py` 添加 energy_resolution 到 `outlier_columns`、`HIST_TITLES`、`HIST_XRANGE` | `app.py` | P0 | ✅ |
+| T6.7 | 验证：执行所有 plot_*.py 确认输出正常 | `plot_*.py` | P1 | ✅ |
+
+### SPE Gain scatter 规则
+
+| 条件 | Marker | 颜色 |
+|------|--------|------|
+| run_id 以 xr 开头 | triangle-up (▲) | #D62728 |
+| run_id 纯数字 | circle (●) | #2B6FB3 |
+| 离群点 (&gt;3σ) | x (✕)，加大 | #D62728 |
+| hv &gt; 800V | 不显示 | — |
+
+### Dark Count Rate scatter 规则
+
+| 条件 | Marker | 颜色 |
+|------|--------|------|
+| &lt; 1000 Hz | (按 run_type) | #2B6FB3 |
+| 1000–2000 Hz | (按 run_type) | #E8652D |
+| &gt; 2000 Hz | (按 run_type) | #D62728 |
+| xr tested | square (■) | — |
+| westlake tested | circle (●) | — |
+| westlake 同 pmt_id 重复 | 只保留最小 DCR | — |
+| 阈值线 | 1000Hz 虚线 | — |
+
+### Energy Resolution 新增规则
+
+| 条件 | 说明 |
+|------|------|
+| X 轴范围 | 0–1.5 |
+| 阈值线 | 0.5 (红虚线) |
+| run_type 区分 | xr → 方块 ■，westlake → 圆形 ● |
 ```

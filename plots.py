@@ -283,13 +283,16 @@ def plot_trend_scatter(
     title: Optional[str] = None,
     y_label: Optional[str] = None,
 ) -> go.Figure:
-    """绘制参数 vs. PMT ID 趋势散点图。
+    """参数 vs. PMT ID 趋势散点图。
 
-    spe_gain / dark_count_rate 直接使用 df[y_column] 原始值。
-    dark_count_rate 使用三种形状（圆/三角形/叉号），>2000 Hz 标注 pmt_id。
-    spe_gain 不标记离群点。
-    after_pulse_probability ×100 后仅正常+离群点标记。
+    spe_gain: xr ▲ / westlake ●，过滤 hv>800V，离群点 >3σ 标注。
+    dark_count_rate: <1000蓝/1000-2000橙/>2000红，xr■/westlake●，1000Hz虚线。
+    westlake DCR 同一 pmt_id 只保留最小值。
+    after_pulse_probability: 正常+离群点，保持不变。
+    energy_resolution: 按 xr/westlake 区分，0.5 阈值虚线。
     """
+    import re as _re
+
     if title is None:
         title = f"{y_column} vs PMT ID"
     if y_label is None:
@@ -297,122 +300,177 @@ def plot_trend_scatter(
 
     valid = df[y_column].notna()
     plot_df = df[valid].copy()
-    plot_df.sort_values("pmt_id", inplace=True)
 
-    fig = go.Figure()
-
-    # ── 计算中心值：原始值（APP 需 ×100）──
-    if y_column == "after_pulse_probability":
-        center_val = compute_center(plot_df[y_column] * 100, method=center_method)
+    if "run_id" in plot_df.columns:
+        plot_df["_run_type"] = plot_df["run_id"].apply(
+            lambda x: "xr" if _re.match(r"^xr", str(x)) else "numeric"
+        )
     else:
+        plot_df["_run_type"] = "numeric"
+
+    cd_cols = [c for c in ["run_id", "hv", "temperature", "notes"] if c in plot_df.columns]
+
+    if y_column == "spe_gain":
+        plot_df = plot_df[plot_df.get("hv", 0) <= 800].copy()
+        plot_df.sort_values("pmt_id", inplace=True)
         center_val = compute_center(plot_df[y_column], method=center_method)
 
-    # ── dark_count_rate: 三分组形状，用原始值 ──
-    if y_column == "dark_count_rate":
-        for mask_fn, color, marker, label in [
-            (lambda v: v < DCR_LOW, COLOR_LOW, "circle", f"< {DCR_LOW:.0f} Hz"),
-            (lambda v: (v >= DCR_LOW) & (v <= DCR_HIGH), COLOR_MID, "triangle-up", f"{DCR_LOW:.0f}–{DCR_HIGH:.0f} Hz"),
-            (lambda v: v > DCR_HIGH, COLOR_HIGH, "x", f"> {DCR_HIGH:.0f} Hz"),
+        mean_val = plot_df[y_column].mean()
+        std_val = plot_df[y_column].std()
+        lower = mean_val - 3 * std_val
+        upper = mean_val + 3 * std_val
+        plot_df["_outlier"] = (plot_df[y_column] < lower) | (plot_df[y_column] > upper)
+        normal = plot_df[~plot_df["_outlier"]]
+        outlier = plot_df[plot_df["_outlier"]]
+
+        fig = go.Figure()
+        for sub, marker, color, label_tag in [
+            (normal[normal["_run_type"] == "xr"], "triangle-up", "#D62728", "xr tested"),
+            (normal[normal["_run_type"] == "numeric"], "circle", "#2B6FB3", "westlake tested"),
         ]:
-            subset = plot_df[mask_fn(plot_df[y_column])].copy()
-            if len(subset) == 0:
+            if len(sub) == 0:
                 continue
-            cd = subset[["run_id", "hv", "temperature", "notes"]].fillna("").values
-            is_high = label.startswith(">")
+            cd = sub[cd_cols].fillna("").values
             fig.add_trace(go.Scatter(
-                x=subset["pmt_id"].astype(str),
-                y=subset[y_column],
-                mode="markers+text" if is_high else "markers",
-                name=label,
-                marker=dict(color=color, symbol=marker, size=10, line=dict(width=1, color=color)),
-                text=subset["pmt_id"].astype(str) if is_high else None,
-                textposition="top center",
-                textfont=dict(color=color, size=9),
+                x=sub["pmt_id"].astype(str), y=sub[y_column],
+                mode="markers", name=label_tag,
+                marker=dict(color=color, symbol=marker, size=9, line=dict(width=1, color=color)),
                 customdata=cd,
                 hovertemplate=(
-                    f"pmt_id: %{{x}}<br>"
-                    f"{y_label}: %{{y:.1f}}<br>"
+                    f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}<br>"
                     "run_id: %{customdata[0]}<br>"
                     "hv: %{customdata[1]}<br>"
-                    "temperature: %{customdata[2]}<br>"
                     "notes: %{customdata[3]}<extra></extra>"
                 ),
             ))
+        if len(outlier) > 0:
+            cd = outlier[cd_cols].fillna("").values
+            fig.add_trace(go.Scatter(
+                x=outlier["pmt_id"].astype(str), y=outlier[y_column],
+                mode="markers+text", name="Outlier (&gt;3σ)",
+                marker=dict(color="#D62728", symbol="x", size=14, line=dict(width=2, color="#D62728")),
+                text=outlier["pmt_id"].astype(str),
+                textposition="top center",
+                textfont=dict(color="#D62728", size=9),
+                customdata=cd,
+                hovertemplate=(
+                    f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}<br>"
+                    "run_id: %{customdata[0]}<br>"
+                    "hv: %{customdata[1]}<br>"
+                    "notes: %{customdata[3]}<extra></extra>"
+                ),
+            ))
+        fig.add_hline(y=center_val, line_dash="dash", line_color="gray", line_width=2,
+                      annotation_text=f"median: {center_val:.2f}", annotation_position="top right")
 
-    # ── spe_gain: 直接原始值，不标记离群点 ──
-    elif y_column == "spe_gain":
-        cd = plot_df[["run_id", "hv", "temperature", "notes"]].fillna("").values
-        fig.add_trace(go.Scatter(
-            x=plot_df["pmt_id"].astype(str),
-            y=plot_df[y_column],
-            mode="markers",
-            name="数据点",
-            marker=dict(color=COLOR_GAIN, size=8),
-            customdata=cd,
-            hovertemplate=(
-                f"pmt_id: %{{x}}<br>"
-                f"{y_label}: %{{y:.2f}}<br>"
-                "run_id: %{customdata[0]}<br>"
-                "hv: %{customdata[1]}<br>"
-                "temperature: %{customdata[2]}<br>"
-                "notes: %{customdata[3]}<extra></extra>"
-            ),
-        ))
+    elif y_column == "dark_count_rate":
+        xr_df = plot_df[plot_df["_run_type"] == "xr"]
+        num_df = plot_df[plot_df["_run_type"] == "numeric"]
+        if len(num_df) > 0:
+            num_df = num_df.loc[num_df.groupby("pmt_id")[y_column].idxmin()]
+        plot_df = pd.concat([xr_df, num_df], ignore_index=True)
+        plot_df.sort_values("pmt_id", inplace=True)
 
-    # ── after_pulse_probability: ×100 显示，正常+离群点 ──
+        fig = go.Figure()
+        for mask_fn, color, dcr_label in [
+            (lambda v: v < DCR_LOW, COLOR_LOW, f"&lt; {DCR_LOW:.0f} Hz"),
+            (lambda v: (v >= DCR_LOW) & (v <= DCR_HIGH), COLOR_MID, f"{DCR_LOW:.0f}–{DCR_HIGH:.0f} Hz"),
+            (lambda v: v > DCR_HIGH, COLOR_HIGH, f"&gt; {DCR_HIGH:.0f} Hz"),
+        ]:
+            sub = plot_df[mask_fn(plot_df[y_column])]
+            is_high = dcr_label.startswith("&gt;")
+            for rt, symbol, rt_label in [("xr", "square", "xr tested"), ("numeric", "circle", "westlake tested")]:
+                sub_rt = sub[sub["_run_type"] == rt]
+                if len(sub_rt) == 0:
+                    continue
+                cd = sub_rt[cd_cols].fillna("").values
+                fig.add_trace(go.Scatter(
+                    x=sub_rt["pmt_id"].astype(str), y=sub_rt[y_column],
+                    mode="markers+text" if is_high else "markers",
+                    name=f"{dcr_label} – {rt_label} (n={len(sub_rt)})",
+                    marker=dict(color=color, symbol=symbol, size=9, line=dict(width=1, color=color)),
+                    text=sub_rt["pmt_id"].astype(str) if is_high else None,
+                    textposition="top center", textfont=dict(color=color, size=9),
+                    customdata=cd,
+                    hovertemplate=(
+                        f"pmt_id: %{{x}}<br>{y_label}: %{{y:.1f}}<br>"
+                        "run_id: %{customdata[0]}<br>"
+                        "hv: %{customdata[1]}<br>"
+                        "notes: %{customdata[3]}<extra></extra>"
+                    ),
+                ))
+        fig.add_hline(y=DCR_LOW, line_dash="dash", line_color="gray", line_width=2,
+                      annotation_text=f"{DCR_LOW:.0f} Hz", annotation_position="top right")
+
+    elif y_column == "energy_resolution":
+        plot_df.sort_values("pmt_id", inplace=True)
+        center_val = compute_center(plot_df[y_column], method=center_method)
+
+        fig = go.Figure()
+        for rt, marker, color, label_tag in [
+            ("xr", "square", "#D62728", "xr tested"),
+            ("numeric", "circle", "#2B6FB3", "westlake tested"),
+        ]:
+            sub = plot_df[plot_df["_run_type"] == rt]
+            if len(sub) == 0:
+                continue
+            cd = sub[cd_cols].fillna("").values
+            fig.add_trace(go.Scatter(
+                x=sub["pmt_id"].astype(str), y=sub[y_column],
+                mode="markers", name=label_tag,
+                marker=dict(color=color, symbol=marker, size=9, line=dict(width=1, color=color)),
+                customdata=cd,
+                hovertemplate=(
+                    f"pmt_id: %{{x}}<br>{y_label}: %{{y:.4f}}<br>"
+                    "run_id: %{customdata[0]}<br>"
+                    "hv: %{customdata[1]}<br>"
+                    "notes: %{customdata[3]}<extra></extra>"
+                ),
+            ))
+        fig.add_hline(y=0.5, line_dash="dash", line_color="#D62728", line_width=2,
+                      annotation_text="Threshold: 0.5", annotation_position="top right")
+        fig.add_hline(y=center_val, line_dash="dot", line_color="gray", line_width=1,
+                      annotation_text=f"median: {center_val:.4f}", annotation_position="top right")
+
     else:
         plot_df["app_pct"] = plot_df[y_column] * 100
+        center_val = compute_center(plot_df["app_pct"], method=center_method)
         normal = plot_df.copy()
         outlier = pd.DataFrame()
         if outlier_mask is not None and len(outlier_mask) == len(plot_df):
             outlier = plot_df[outlier_mask.loc[plot_df.index].values]
             normal = plot_df[~outlier_mask.loc[plot_df.index].values]
-
-        cd_n = normal[["run_id", "hv", "temperature", "notes"]].fillna("").values
+        fig = go.Figure()
+        cd_n = normal[cd_cols].fillna("").values
         fig.add_trace(go.Scatter(
-            x=normal["pmt_id"].astype(str),
-            y=normal["app_pct"],
-            mode="markers",
-            name="正常",
+            x=normal["pmt_id"].astype(str), y=normal["app_pct"],
+            mode="markers", name="正常",
             marker=dict(color=COLOR_GAIN, size=8),
             customdata=cd_n,
             hovertemplate=(
-                f"pmt_id: %{{x}}<br>"
-                f"{y_label}: %{{y:.2f}}%<br>"
+                f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}%<br>"
                 "run_id: %{customdata[0]}<br>"
-                "hv: %{customdata[1]}<br>"
-                "temperature: %{customdata[2]}<br>"
                 "notes: %{customdata[3]}<extra></extra>"
             ),
         ))
-
         if len(outlier) > 0:
-            cd_o = outlier[["run_id", "hv", "temperature", "notes"]].fillna("").values
+            cd_o = outlier[cd_cols].fillna("").values
             fig.add_trace(go.Scatter(
-                x=outlier["pmt_id"].astype(str),
-                y=outlier["app_pct"],
+                x=outlier["pmt_id"].astype(str), y=outlier["app_pct"],
                 mode="markers+text" if show_outlier_labels else "markers",
                 name="离群点",
                 marker=dict(color=COLOR_HIGH, size=12, symbol="x", line=dict(width=2, color=COLOR_HIGH)),
                 text=outlier["pmt_id"].astype(str) if show_outlier_labels else None,
-                textposition="top center",
-                textfont=dict(color=COLOR_HIGH, size=9),
+                textposition="top center", textfont=dict(color=COLOR_HIGH, size=9),
                 customdata=cd_o,
                 hovertemplate=(
-                    f"pmt_id: %{{x}}<br>"
-                    f"{y_label}: %{{y:.2f}}%<br>"
+                    f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}%<br>"
                     "run_id: %{customdata[0]}<br>"
-                    "hv: %{customdata[1]}<br>"
-                    "temperature: %{customdata[2]}<br>"
                     "notes: %{customdata[3]}<extra></extra>"
                 ),
             ))
-
-    fig.add_hline(
-        y=center_val, line_dash="dash", line_color="gray", line_width=2,
-        annotation_text=f"{center_method}: {center_val:.3g}",
-        annotation_position="top right",
-    )
+        fig.add_hline(y=center_val, line_dash="dash", line_color="gray", line_width=2,
+                      annotation_text=f"{center_method}: {center_val:.3g}", annotation_position="top right")
 
     fig.update_layout(
         title=title,

@@ -12,11 +12,11 @@ import yaml
 REQUIRED_COLUMNS = [
     "id", "pmt_id", "board_id", "channel_id", "measurement_time",
     "run_id", "run_type", "run_tag", "hv", "temperature",
-    "spe_gain", "dark_count_rate", "after_pulse_probability", "notes",
+    "spe_gain", "dark_count_rate", "after_pulse_probability", "notes", "energy_resolution",
 ]
 
 NUMERIC_COLUMNS = [
-    "hv", "temperature", "spe_gain", "dark_count_rate", "after_pulse_probability",
+    "hv", "temperature", "spe_gain", "dark_count_rate", "after_pulse_probability", "energy_resolution",
 ]
 
 
