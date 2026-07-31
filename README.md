@@ -31,7 +31,7 @@ git remote -v
 1. 访问 [share.streamlit.io](https://share.streamlit.io)
 2. 用 GitHub 账号登录
 3. 点击 **New app** → 选择仓库 `Yangjijun1992/pmt-scope`
-4. Main file path: `app.py`
+4. Main file path: `web/app.py`
 5. 点击 **Advanced settings** → 选择 Python 版本（3.10+）
 6. 点击 **Deploy**
 
@@ -51,7 +51,7 @@ PMTSCOPE_PASSWORD = "your_password"
 在内网服务器上运行同步脚本，将 SQLite 数据导出为 CSV 并推送到 GitHub：
 
 ```bash
-./sync_and_deploy.sh
+./web/sync_and_deploy.sh
 ```
 
 脚本执行流程：
@@ -65,7 +65,7 @@ Streamlit Cloud 检测到推送后会自动重新部署，新数据即可在网�
 
 ```bash
 # 每天凌晨 2 点自动同步
-0 2 * * * cd /home/yjj/pmtdatabase/pmt-scope && ./sync_and_deploy.sh >> sync.log 2>&1
+0 2 * * * cd /home/yjj/pmtdatabase/pmt-scope && ./web/sync_and_deploy.sh >> sync.log 2>&1
 ```
 
 ### 访问
@@ -87,46 +87,60 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 配置凭据
-cp .env.example .env
+cp web/.env.example .env
 # 编辑 .env 填入实际用户名和密码
 
-# 编辑 config.yaml 选择数据源
+# 编辑 web/config.yaml 选择数据源
 # database.type: csv  → 使用 data/pmt_data.csv
 # database.type: sqlite → 使用 /mnt/data/TPC/database/pmt_data.db
 
 # 启动
-streamlit run app.py
+streamlit run web/app.py
 ```
 
 或使用启动脚本常驻后台：
 
 ```bash
-./start.sh start    # 启动
-./start.sh stop     # 停止
-./start.sh status   # 查看状态
+./web/start.sh start    # 启动
+./web/start.sh stop     # 停止
+./web/start.sh status   # 查看状态
 ```
 
 ## 项目结构
 
 ```
-PMTscope/
-├── app.py                    # 主入口（含用户认证）
-├── data_loader.py            # 数据加载与过滤（支持 CSV / SQLite）
-├── plots.py                  # Plotly 图表生成
-├── utils.py                  # 统计计算与离群点检测
-├── config.yaml               # 数据库与可视化配置
-├── sync_and_deploy.sh        # 数据同步 → GitHub → Streamlit Cloud 自动部署
-├── start.sh                  # 本地/内网 启动/停止脚本
-├── pmtscope.service          # systemd 服务文件
-├── .env.example              # 凭据模板（本地用）
-├── .streamlit/
-│   └── secrets.toml.example  # Streamlit Secrets 模板
-├── .gitignore
-├── requirements.txt
-├── generate_sample_data.py   # 示例数据生成脚本
+pmt-scope/
+├── web/                          # Streamlit 远程网页端
+│   ├── app.py                    # 主入口（含用户认证）
+│   ├── plots.py                  # Plotly 交互式图表生成
+│   ├── config.yaml               # 数据库与可视化配置
+│   ├── requirements.txt          # Python 依赖
+│   ├── start.sh                  # 本地/内网 启动/停止/状态脚本
+│   ├── sync_and_deploy.sh        # 数据同步 → GitHub → Streamlit Cloud 自动部署
+│   ├── pmtscope.service          # systemd 服务文件
+│   └── .env.example              # 凭据模板（本地用）
+│
+├── scripts/                      # 本地离线画图与数据处理
+│   ├── plot_gain.py              # SPE Gain 直方图 + 散点图 (matplotlib → PNG)
+│   ├── plot_dark_rate.py         # Dark Count Rate 直方图 + 散点图 (matplotlib → PNG)
+│   ├── plot_after_pulse.py       # After-Pulse Probability 直方图 (matplotlib → PNG)
+│   ├── plot_energy_resolution.py # Energy Resolution 直方图 + 散点图 (matplotlib → PNG)
+│   ├── select_candidates.py      # 候选 PMT 筛选（按 DCR/Gain/ER/APP 条件）
+│   └── generate_sample_data.py   # 示例数据生成
+│
+├── data_loader.py                # 共用：数据加载与过滤（支持 CSV / SQLite）
+├── utils.py                      # 共用：统计计算与离群点检测
+│
 ├── data/
-│   └── pmt_data.csv          # 数据文件（CSV 模式，由 sync_and_deploy.sh 生成）
-└── docs/
-    ├── inference.md          # 需求文档
-    └── tasks.md              # 开发任务列表
+│   └── pmt_data.csv              # 数据文件（CSV 模式，由 sync_and_deploy.sh 生成）
+├── docs/
+│   ├── inference.md              # 需求文档
+│   ├── tasks.md                  # 开发任务列表
+│   ├── overlap_pmt_ids.csv       # 科大+西湖重复计数 PMT 列表
+│   └── ...                       # 其他绘图规格和统计文档
+├── figs/                         # scripts/ 输出的 PNG 图片
+├── .streamlit/
+│   └── secrets.toml.example      # Streamlit Secrets 模板
+├── .gitignore
+└── README.md
 ```

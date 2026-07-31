@@ -22,6 +22,9 @@ NUMERIC_COLUMNS = [
 
 def load_config(config_path: str = "config.yaml") -> dict:
     """加载 YAML 配置文件。"""
+    if not os.path.isabs(config_path) and not os.path.exists(config_path):
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(project_root, "web", os.path.basename(config_path))
     with open(config_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
@@ -33,11 +36,18 @@ def load_data(config: dict) -> pd.DataFrame:
     db_path = db_cfg.get("path", "data/pmt_data.csv")
     db_table = db_cfg.get("table", "measurements")
 
+    if not os.path.isabs(db_path):
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_path)
+
     if db_type == "sqlite":
         conn = sqlite3.connect(db_path)
         df = pd.read_sql_query(f"SELECT * FROM {db_table}", conn)
         conn.close()
     elif db_type == "csv":
+        if not os.path.exists(db_path):
+            alt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "pmt_data.csv")
+            if os.path.exists(alt_path):
+                db_path = alt_path
         df = pd.read_csv(db_path)
     else:
         raise ValueError(f"不支持的数据源类型: {db_type}")

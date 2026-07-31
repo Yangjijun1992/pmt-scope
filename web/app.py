@@ -14,6 +14,7 @@ from plots import (
     plot_histogram, plot_histogram_compare,
     plot_3d_scatter,
     plot_trend_scatter, plot_trend_compare,
+    plot_overlap_dcr_scatter, plot_overlap_er_scatter, plot_overlap_gain_scatter,
 )
 from utils import detect_outliers_df
 
@@ -380,6 +381,30 @@ if color_by and len(filtered_df) > 0:
             )
 else:
     st.info("无可用数据或颜色映射字段缺失。")
+
+# ── 重复 PMT 两次测试对比图 ─────────────────────────────────
+
+st.divider()
+st.header("🔄 重复 PMT 两次测试对比 (USTC vs Westlake)")
+
+if OVERLAP_PMTS:
+    overlap_df = filtered_df[filtered_df["pmt_id"].isin(OVERLAP_PMTS)]
+
+    tab1, tab2, tab3 = st.tabs(["Dark Count Rate", "SPE Gain", "Energy Resolution"])
+
+    with tab1:
+        fig = plot_overlap_dcr_scatter(overlap_df)
+        st.plotly_chart(fig, width="stretch", key="overlap_dcr")
+
+    with tab2:
+        fig = plot_overlap_gain_scatter(overlap_df)
+        st.plotly_chart(fig, width="stretch", key="overlap_gain")
+
+    with tab3:
+        fig = plot_overlap_er_scatter(overlap_df)
+        st.plotly_chart(fig, width="stretch", key="overlap_er")
+else:
+    st.info("无重复 PMT 数据（缺少 overlap_pmt_ids.csv）。")
 
 # ── PMT 候选汇总表 ─────────────────────────────────────────
 

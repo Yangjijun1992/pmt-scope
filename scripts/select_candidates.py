@@ -23,7 +23,7 @@ import pandas as pd
 
 
 DB_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "pmt-data-client", "data", "pmt_data.db"
+    os.path.dirname(__file__), "..", "..", "pmt-data-client", "data", "pmt_data.db"
 )
 
 DCR_MAX = 1000.0

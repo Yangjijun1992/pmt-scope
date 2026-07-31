@@ -5,6 +5,7 @@
      - xr* run_id: 方块 (s)
      - 纯数字 run_id: 圆形 (o), 同一 pmt_id 只保留 DCR 最小值
      - < 1000 Hz: 蓝色; 1000–2000 Hz: 橙色; > 2000 Hz: 红色
+     - overlap PMT: 紫色空心菱形 (◇)
 
 数据源: ../pmt-data-client/data/pmt_data.db
 输出: figs/dark_rate_histogram.png, figs/dark_rate_scatter.png
@@ -20,8 +21,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "pmt-data-client", "data", "pmt_data.db")
-FIGS_DIR = os.path.join(os.path.dirname(__file__), "figs")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "pmt-data-client", "data", "pmt_data.db")
+FIGS_DIR = os.path.join(os.path.dirname(__file__), "..", "figs")
 DCR_MIN, DCR_MAX = 50.0, 5000.0
 THRESHOLD_LOW = 1000.0
 THRESHOLD_HIGH = 2000.0
@@ -30,6 +31,18 @@ COLOR_LOW = "#2B6FB3"       # blue
 COLOR_MID = "#E8652D"       # orange
 COLOR_HIGH = "#D62728"      # red
 COLOR_MEDIAN = "#333333"
+COLOR_OVERLAP = "#9467BD"   # 紫色: 科大+西湖重复计数 PMT
+
+
+def _load_overlap_pmts() -> set:
+    path = os.path.join(os.path.dirname(__file__), "..", "docs", "overlap_pmt_ids.csv")
+    if os.path.exists(path):
+        try:
+            overlap_df = pd.read_csv(path)
+            return set(overlap_df["pmt_id"].dropna().tolist())
+        except Exception:
+            return set()
+    return set()
 
 
 def load_data(db_path: str) -> pd.DataFrame:
@@ -104,8 +117,10 @@ def plot_histogram(df: pd.DataFrame, out_path: str):
     print(f"[OK] Saved: {out_path}")
 
 
-def plot_scatter(df: pd.DataFrame, out_path: str):
+def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
     median_val = df["dark_count_rate"].median()
+
+    is_overlap = df["pmt_id"].isin(overlap_pmts)
 
     fig, ax = plt.subplots(figsize=(18, 6))
 
@@ -113,34 +128,42 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
     mid_mask = (df["dark_count_rate"] >= THRESHOLD_LOW) & (df["dark_count_rate"] <= THRESHOLD_HIGH)
     high_mask = df["dark_count_rate"] > THRESHOLD_HIGH
 
-    # Plot by DCR range, with marker shape by run_type
+    # Plot by DCR range, with marker shape by run_type, overlap highlighted
     for mask, color, dcr_label in [
         (low_mask, COLOR_LOW, f"< {THRESHOLD_LOW:.0f} Hz"),
         (mid_mask, COLOR_MID, f"{THRESHOLD_LOW:.0f}–{THRESHOLD_HIGH:.0f} Hz"),
         (high_mask, COLOR_HIGH, f"> {THRESHOLD_HIGH:.0f} Hz"),
     ]:
         subset = df[mask]
+        is_overlap_sub = is_overlap.loc[subset.index]
         xr_sub = subset[subset["run_type"] == "xr"]
-        num_sub = subset[subset["run_type"] == "numeric"]
+        num_sub_nohl = subset[(subset["run_type"] == "numeric") & ~is_overlap_sub]
+        num_sub_hl = subset[(subset["run_type"] == "numeric") & is_overlap_sub]
 
         if len(xr_sub) > 0:
             ax.scatter(xr_sub.index, xr_sub["dark_count_rate"],
                        c=color, marker="s", s=50, zorder=4, alpha=0.85,
                        edgecolors="white", linewidths=0.3,
                        label=f"{dcr_label} – xr tested (n={len(xr_sub)})")
-        if len(num_sub) > 0:
-            ax.scatter(num_sub.index, num_sub["dark_count_rate"],
+        if len(num_sub_nohl) > 0:
+            ax.scatter(num_sub_nohl.index, num_sub_nohl["dark_count_rate"],
                        c=color, marker="o", s=40, zorder=3, alpha=0.85,
                        edgecolors="white", linewidths=0.3,
-                       label=f"{dcr_label} – westlake tested (n={len(num_sub)})")
+                       label=f"{dcr_label} – westlake tested (n={len(num_sub_nohl)})")
+        if len(num_sub_hl) > 0:
+            ax.scatter(num_sub_hl.index, num_sub_hl["dark_count_rate"],
+                       c=COLOR_OVERLAP, marker="D", s=60, zorder=7, alpha=0.9,
+                       edgecolors=COLOR_OVERLAP, linewidths=1.5,
+                       label=f"{dcr_label} – overlap (n={len(num_sub_hl)})")
 
     # Annotate high-DCR PMTs (>2000 Hz)
     high_subset = df[high_mask]
     for i in high_subset.index:
         val = df.loc[i, "dark_count_rate"]
         pid = df.loc[i, "pmt_id"]
+        color = COLOR_OVERLAP if df.loc[i, "pmt_id"] in overlap_pmts else COLOR_HIGH
         ax.annotate(pid, (i, val), textcoords="offset points", xytext=(0, 12),
-                    ha="center", fontsize=7, color=COLOR_HIGH, fontweight="bold")
+                    ha="center", fontsize=7, color=color, fontweight="bold")
 
     # Threshold line
     ax.axhline(THRESHOLD_LOW, color=COLOR_MEDIAN, linestyle="--", linewidth=1.5,
@@ -150,7 +173,7 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
     ax.set_xticklabels(df["pmt_id"], rotation=90, fontsize=5)
     ax.set_xlabel("PMT ID", fontsize=12)
     ax.set_ylabel("Dark Count Rate [Hz]", fontsize=12)
-    ax.set_title("Dark Count Rate vs PMT ID", fontsize=14, fontweight="bold")
+    ax.set_title("Dark Count Rate vs PMT ID  (◇ = overlap xr+westlake)", fontsize=14, fontweight="bold")
     ax.legend(loc="upper left", fontsize=7)
     ax.grid(axis="y", alpha=0.3)
     ax.set_xlim(-0.5, len(df) - 0.5)
@@ -163,10 +186,13 @@ def plot_scatter(df: pd.DataFrame, out_path: str):
 
 
 def main():
+    overlap_pmts = _load_overlap_pmts()
+    print(f"Overlap PMTs loaded: {len(overlap_pmts)}")
     df = load_data(DB_PATH)
     print(f"Loaded {len(df)} records with dark count rate in [{DCR_MIN}, {DCR_MAX}] Hz")
     print(f"  xr tested:        {len(df[df['run_type'] == 'xr'])}")
     print(f"  westlake tested:  {len(df[df['run_type'] == 'numeric'])}")
+    print(f"  Overlap PMTs:     {len(df[df['pmt_id'].isin(overlap_pmts)])}")
     print(f"  < 1000 Hz:        {len(df[df['dark_count_rate'] < THRESHOLD_LOW])}")
     print(f"  1000–2000 Hz:     {len(df[(df['dark_count_rate'] >= THRESHOLD_LOW) & (df['dark_count_rate'] <= THRESHOLD_HIGH)])}")
     print(f"  > 2000 Hz:        {len(df[df['dark_count_rate'] > THRESHOLD_HIGH])}")
@@ -175,7 +201,7 @@ def main():
     out_scatter = os.path.join(FIGS_DIR, "dark_rate_scatter.png")
 
     plot_histogram(df, out_hist)
-    plot_scatter(df, out_scatter)
+    plot_scatter(df, out_scatter, overlap_pmts)
 
     print("Done.")
 

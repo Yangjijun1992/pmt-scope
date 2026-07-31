@@ -270,7 +270,275 @@ def plot_3d_scatter(
     )
     fig.update_layout(
         template="plotly_white",
-        legend=dict(title=dict(text="pmt_id")),
+        xaxis=dict(tickangle=45),
+    )
+    return fig
+
+
+# ══════════════════════════════════════════════════════════════════
+# 重复 PMT 两次测试对比图
+# ══════════════════════════════════════════════════════════════════
+
+COLOR_XR = "#D62728"
+COLOR_WL = "#2B6FB3"
+
+
+def plot_overlap_dcr_scatter(
+    df: pd.DataFrame,
+    title: str = "Overlap PMT Dark Count Rate: USTC vs Westlake",
+) -> go.Figure:
+    """重复 PMT 的 Dark Count Rate 散点对比图。
+
+    每个 overlap PMT 取 xr 和 numeric 两边的 dark_count_rate，
+    y 轴为 DCR 值，x 轴为 pmt_id，同一 pmt_id 用竖线连接两次测量。
+    """
+    import re as _re
+
+    valid = df["dark_count_rate"].notna()
+    plot_df = df[valid].copy()
+
+    if "run_id" in plot_df.columns:
+        plot_df["_run_type"] = plot_df["run_id"].apply(
+            lambda x: "xr" if _re.match(r"^xr", str(x)) else "numeric"
+        )
+    else:
+        return go.Figure()
+
+    # 按 pmt_id 聚合
+    agg = plot_df.groupby(["pmt_id", "_run_type"])["dark_count_rate"].mean().reset_index()
+    agg.sort_values("pmt_id", inplace=True)
+
+    pmt_ids = sorted(agg["pmt_id"].unique())
+
+    fig = go.Figure()
+
+    for pid in pmt_ids:
+        sub = agg[agg["pmt_id"] == pid]
+        xr_row = sub[sub["_run_type"] == "xr"]
+        num_row = sub[sub["_run_type"] == "numeric"]
+
+        xr_val = xr_row["dark_count_rate"].values[0] if len(xr_row) > 0 else None
+        num_val = num_row["dark_count_rate"].values[0] if len(num_row) > 0 else None
+
+        # 竖线连接
+        if xr_val is not None and num_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid, pid],
+                y=[xr_val, num_val],
+                mode="lines",
+                line=dict(color="gray", width=1, dash="dot"),
+                showlegend=False,
+                hoverinfo="skip",
+            ))
+
+        # xr 点
+        if xr_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid], y=[xr_val],
+                mode="markers",
+                marker=dict(color=COLOR_XR, symbol="triangle-up", size=12,
+                            line=dict(width=1, color=COLOR_XR)),
+                name="USTC (xr)",
+                legendgroup="xr",
+                hovertemplate=f"pmt_id: {pid}<br>DCR: {xr_val:.1f} Hz<extra></extra>",
+                showlegend=(pid == pmt_ids[0]),
+            ))
+
+        # numeric 点
+        if num_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid], y=[num_val],
+                mode="markers",
+                marker=dict(color=COLOR_WL, symbol="circle", size=12,
+                            line=dict(width=1, color=COLOR_WL)),
+                name="Westlake",
+                legendgroup="wl",
+                hovertemplate=f"pmt_id: {pid}<br>DCR: {num_val:.1f} Hz<extra></extra>",
+                showlegend=(pid == pmt_ids[0]),
+            ))
+
+    # y = x 参考线
+    if len(agg) > 0:
+        all_vals = agg["dark_count_rate"]
+        max_val = all_vals.max()
+        fig.add_trace(go.Scatter(
+            x=[pmt_ids[0], pmt_ids[-1]],
+            y=[0, 0],
+            mode="lines",
+            line=dict(color="black", width=0.5, dash="solid"),
+            showlegend=False,
+            hoverinfo="skip",
+        ))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="PMT ID",
+        yaxis_title="Dark Count Rate [Hz]",
+        template="plotly_white",
+        xaxis=dict(tickangle=45, categoryorder="array", categoryarray=pmt_ids),
+    )
+    return fig
+
+
+def plot_overlap_er_scatter(
+    df: pd.DataFrame,
+    title: str = "Overlap PMT Energy Resolution: USTC vs Westlake",
+) -> go.Figure:
+    """重复 PMT 的 Energy Resolution 散点对比图。
+
+    每个 overlap PMT 取 xr 和 numeric 两边的 energy_resolution，
+    y 轴为 ER 值，x 轴为 pmt_id，同一 pmt_id 用竖线连接两次测量。
+    """
+    import re as _re
+
+    valid = df["energy_resolution"].notna()
+    plot_df = df[valid].copy()
+
+    if "run_id" in plot_df.columns:
+        plot_df["_run_type"] = plot_df["run_id"].apply(
+            lambda x: "xr" if _re.match(r"^xr", str(x)) else "numeric"
+        )
+    else:
+        return go.Figure()
+
+    agg = plot_df.groupby(["pmt_id", "_run_type"])["energy_resolution"].mean().reset_index()
+    agg.sort_values("pmt_id", inplace=True)
+
+    pmt_ids = sorted(agg["pmt_id"].unique())
+
+    fig = go.Figure()
+
+    for pid in pmt_ids:
+        sub = agg[agg["pmt_id"] == pid]
+        xr_row = sub[sub["_run_type"] == "xr"]
+        num_row = sub[sub["_run_type"] == "numeric"]
+
+        xr_val = xr_row["energy_resolution"].values[0] if len(xr_row) > 0 else None
+        num_val = num_row["energy_resolution"].values[0] if len(num_row) > 0 else None
+
+        if xr_val is not None and num_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid, pid],
+                y=[xr_val, num_val],
+                mode="lines",
+                line=dict(color="gray", width=1, dash="dot"),
+                showlegend=False,
+                hoverinfo="skip",
+            ))
+
+        if xr_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid], y=[xr_val],
+                mode="markers",
+                marker=dict(color=COLOR_XR, symbol="triangle-up", size=12,
+                            line=dict(width=1, color=COLOR_XR)),
+                name="USTC (xr)",
+                legendgroup="xr",
+                hovertemplate=f"pmt_id: {pid}<br>ER: {xr_val:.4f}<extra></extra>",
+                showlegend=(pid == pmt_ids[0]),
+            ))
+
+        if num_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid], y=[num_val],
+                mode="markers",
+                marker=dict(color=COLOR_WL, symbol="circle", size=12,
+                            line=dict(width=1, color=COLOR_WL)),
+                name="Westlake",
+                legendgroup="wl",
+                hovertemplate=f"pmt_id: {pid}<br>ER: {num_val:.4f}<extra></extra>",
+                showlegend=(pid == pmt_ids[0]),
+            ))
+
+    fig.add_hline(y=0.5, line_dash="dash", line_color="#D62728", line_width=2,
+                  annotation_text="Threshold: 0.5", annotation_position="top right")
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="PMT ID",
+        yaxis_title="Energy Resolution",
+        template="plotly_white",
+        xaxis=dict(tickangle=45, categoryorder="array", categoryarray=pmt_ids),
+    )
+    return fig
+
+
+def plot_overlap_gain_scatter(
+    df: pd.DataFrame,
+    title: str = "Overlap PMT SPE Gain: USTC vs Westlake",
+) -> go.Figure:
+    """重复 PMT 的 SPE Gain 散点对比图 (hv ≤ 800V)。"""
+    import re as _re
+
+    plot_df = df.copy()
+    if "hv" in plot_df.columns:
+        plot_df = plot_df[plot_df["hv"] <= 800]
+
+    valid = plot_df["spe_gain"].notna()
+    plot_df = plot_df[valid].copy()
+
+    if "run_id" in plot_df.columns:
+        plot_df["_run_type"] = plot_df["run_id"].apply(
+            lambda x: "xr" if _re.match(r"^xr", str(x)) else "numeric"
+        )
+    else:
+        return go.Figure()
+
+    agg = plot_df.groupby(["pmt_id", "_run_type"])["spe_gain"].mean().reset_index()
+    agg.sort_values("pmt_id", inplace=True)
+
+    pmt_ids = sorted(agg["pmt_id"].unique())
+
+    fig = go.Figure()
+
+    for pid in pmt_ids:
+        sub = agg[agg["pmt_id"] == pid]
+        xr_row = sub[sub["_run_type"] == "xr"]
+        num_row = sub[sub["_run_type"] == "numeric"]
+
+        xr_val = xr_row["spe_gain"].values[0] if len(xr_row) > 0 else None
+        num_val = num_row["spe_gain"].values[0] if len(num_row) > 0 else None
+
+        if xr_val is not None and num_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid, pid],
+                y=[xr_val, num_val],
+                mode="lines",
+                line=dict(color="gray", width=1, dash="dot"),
+                showlegend=False,
+                hoverinfo="skip",
+            ))
+
+        if xr_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid], y=[xr_val],
+                mode="markers",
+                marker=dict(color=COLOR_XR, symbol="triangle-up", size=12,
+                            line=dict(width=1, color=COLOR_XR)),
+                name="USTC (xr)",
+                legendgroup="xr",
+                hovertemplate=f"pmt_id: {pid}<br>Gain: {xr_val:.2f}<extra></extra>",
+                showlegend=(pid == pmt_ids[0]),
+            ))
+
+        if num_val is not None:
+            fig.add_trace(go.Scatter(
+                x=[pid], y=[num_val],
+                mode="markers",
+                marker=dict(color=COLOR_WL, symbol="circle", size=12,
+                            line=dict(width=1, color=COLOR_WL)),
+                name="Westlake",
+                legendgroup="wl",
+                hovertemplate=f"pmt_id: {pid}<br>Gain: {num_val:.2f}<extra></extra>",
+                showlegend=(pid == pmt_ids[0]),
+            ))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="PMT ID",
+        yaxis_title="Gain [1.E6 e⁻]",
+        template="plotly_white",
+        xaxis=dict(tickangle=45, categoryorder="array", categoryarray=pmt_ids),
     )
     return fig
 

@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "pmt-data-client", "data", "pmt_data.db")
-FIGS_DIR = os.path.join(os.path.dirname(__file__), "figs")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "pmt-data-client", "data", "pmt_data.db")
+FIGS_DIR = os.path.join(os.path.dirname(__file__), "..", "figs")
 BINS = 20
 
 COLOR_BAR = "#4C78A8"
