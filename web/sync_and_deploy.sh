@@ -5,10 +5,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # SQLITE_DB="/mnt/data/TPC/database/pmt_data.db"
 SQLITE_DB="/home/yjj/pmtdatabase/pmt-data-client/data/pmt_data.db"
 SQLITE_TABLE="measurements"
-CSV_OUTPUT="$SCRIPT_DIR/data/pmt_data.csv"
+CSV_OUTPUT="$PROJECT_DIR/data/pmt_data.csv"
 
 echo "=== PMTscope 数据同步部署 ==="
 echo ""
@@ -29,7 +30,7 @@ echo "      已导出 $row_count 条记录 → $CSV_OUTPUT"
 
 # 2. 提交到 Git
 echo "[2/4] 提交变更到 Git..."
-cd "$SCRIPT_DIR"
+cd "$PROJECT_DIR"
 git add data/pmt_data.csv
 
 if git diff --cached --quiet; then

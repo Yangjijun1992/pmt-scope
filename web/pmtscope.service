@@ -9,7 +9,7 @@ WorkingDirectory=/home/yjj/pmtdatabase/pmt-scope
 Environment="PATH=/home/yjj/pmtdatabase/pmt-scope/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PMTSCOPE_HOST=0.0.0.0"
 Environment="PMTSCOPE_PORT=8501"
-ExecStart=/home/yjj/pmtdatabase/pmt-scope/.venv/bin/streamlit run /home/yjj/pmtdatabase/pmt-scope/app.py \
+ExecStart=/home/yjj/pmtdatabase/pmt-scope/.venv/bin/streamlit run /home/yjj/pmtdatabase/pmt-scope/web/app.py \
     --server.address 0.0.0.0 \
     --server.port 8501 \
     --server.headless true

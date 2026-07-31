@@ -1,6 +1,9 @@
 """PMTscope — PMT 性能参数诊断工具主入口"""
 
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -15,6 +18,19 @@ from plots import (
 from utils import detect_outliers_df
 
 load_dotenv()
+
+# 加载重复计数 (科大 + 西湖均测) 的 PMT 列表
+def _load_overlap_pmts() -> set:
+    path = os.path.join(os.path.dirname(__file__), "..", "docs", "overlap_pmt_ids.csv")
+    if os.path.exists(path):
+        try:
+            df = pd.read_csv(path)
+            return set(df["pmt_id"].dropna().tolist())
+        except Exception:
+            return set()
+    return set()
+
+OVERLAP_PMTS = _load_overlap_pmts()
 
 st.set_page_config(
     page_title="PMTscope",
@@ -289,6 +305,10 @@ else:
 
 st.header("📈 参数 vs. PMT ID 趋势散点图")
 
+if OVERLAP_PMTS:
+    st.caption(f"🟣 紫色空心标记 = 科大+西湖均测的重复 PMT（共 {len(OVERLAP_PMTS)} 只）；"
+               f"🟢 绿色空心标记 (energy resolution) = 重复 PMT")
+
 y_labels = {
     "spe_gain": "Gain [1.E6 e⁻]",
     "dark_count_rate": "Dark Rate [Hz]",
@@ -320,6 +340,7 @@ else:
             outlier_mask=mask,
             show_outlier_labels=enable_outlier,
             y_label=y_labels.get(col_name, col_name),
+            highlight_pmts=OVERLAP_PMTS,
         )
         st.plotly_chart(fig, width="stretch", key=f"trend_{col_name}")
 

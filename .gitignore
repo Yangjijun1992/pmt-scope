@@ -10,3 +10,9 @@ __pycache__/
 .pmtscope.pid
 pmtscope.log
 sync.log
+
+docs/
+
+# Keep web/ requirements.txt for deployment
+!web/requirements.txt
+

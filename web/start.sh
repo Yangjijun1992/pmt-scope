@@ -3,10 +3,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python"
-VENV_STREAMLIT="$SCRIPT_DIR/.venv/bin/streamlit"
-PID_FILE="$SCRIPT_DIR/.pmtscope.pid"
-LOG_FILE="$SCRIPT_DIR/pmtscope.log"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+VENV_PYTHON="$PROJECT_DIR/.venv/bin/python"
+VENV_STREAMLIT="$PROJECT_DIR/.venv/bin/streamlit"
+PID_FILE="$PROJECT_DIR/.pmtscope.pid"
+LOG_FILE="$PROJECT_DIR/pmtscope.log"
 HOST="${PMTSCOPE_HOST:-0.0.0.0}"
 PORT="${PMTSCOPE_PORT:-8501}"
 
