@@ -12,6 +12,7 @@ pmtscope.log
 sync.log
 
 docs/
+!docs/overlap_pmt_ids.csv
 
 # Keep web/ requirements.txt for deployment
 !web/requirements.txt
