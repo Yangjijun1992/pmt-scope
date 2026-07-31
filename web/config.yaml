@@ -1,8 +1,8 @@
 # PMTscope 配置文件
 # 数据库路径配置
 database:
-  type: sqlite
-  path: ../pmt-data-client/data/pmt_data.db
+  type: csv
+  path: data/pmt_data.csv
   table: measurements
 
 # 可视化默认参数
