@@ -11,6 +11,10 @@ __pycache__/
 pmtscope.log
 sync.log
 
+data/
+!data/pmt_data.csv
+!data/run_ids.csv
+
 docs/
 !docs/overlap_pmt_ids.csv
 

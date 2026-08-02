@@ -18,7 +18,8 @@ from plots import (
 )
 from utils import detect_outliers_df
 
-load_dotenv()
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
 # 加载重复计数 (科大 + 西湖均测) 的 PMT 列表
 def _load_overlap_pmts() -> set:
@@ -46,9 +47,11 @@ def _get_credentials():
     try:
         username = st.secrets["PMTSCOPE_USERNAME"]
         password = st.secrets["PMTSCOPE_PASSWORD"]
-        return username, password
-    except (KeyError, FileNotFoundError, AttributeError):
-        return os.getenv("PMTSCOPE_USERNAME", ""), os.getenv("PMTSCOPE_PASSWORD", "")
+        if username and password:
+            return username, password
+    except Exception:
+        pass
+    return os.getenv("PMTSCOPE_USERNAME", ""), os.getenv("PMTSCOPE_PASSWORD", "")
 
 VALID_USERNAME, VALID_PASSWORD = _get_credentials()
 
