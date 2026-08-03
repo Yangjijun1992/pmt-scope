@@ -624,6 +624,22 @@ def plot_trend_scatter(
                     "notes: %{customdata[3]}<extra></extra>"
                 ),
             ))
+        # overlap xr data points
+        overlap_xr = normal[(normal["_run_type"] == "xr") & (normal["pmt_id"].isin(highlight_pmts))]
+        if len(overlap_xr) > 0:
+            cd = overlap_xr[cd_cols].fillna("").values
+            fig.add_trace(go.Scatter(
+                x=overlap_xr["pmt_id"].astype(str), y=overlap_xr[y_column],
+                mode="markers", name="overlap (xr data)",
+                marker=dict(color=COLOR_HIGHLIGHT, symbol="triangle-up-open", size=11, line=dict(width=2, color=COLOR_HIGHLIGHT)),
+                customdata=cd,
+                hovertemplate=(
+                    f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}<br>"
+                    "run_id: %{customdata[0]}<br>"
+                    "hv: %{customdata[1]}<br>"
+                    "notes: %{customdata[3]}<extra></extra>"
+                ),
+            ))
         if len(outlier) > 0:
             cd = outlier[cd_cols].fillna("").values
             fig.add_trace(go.Scatter(
@@ -669,10 +685,9 @@ def plot_trend_scatter(
                     continue
                 sub_hl = sub_rt[sub_rt["pmt_id"].isin(highlight_pmts)]
                 sub_norm = sub_rt[~sub_rt["pmt_id"].isin(highlight_pmts)]
-                marker_color = COLOR_HIGHLIGHT if len(sub_hl) > 0 and rt == "numeric" else color
-                marker_symbol = "diamond-open" if len(sub_hl) > 0 and rt == "numeric" else symbol
+                # overlap westlake → purple diamond
                 if len(sub_hl) > 0 and rt == "numeric":
-                    sub_hl_label = f"{dcr_label} – overlap (n={len(sub_hl)})"
+                    sub_hl_label = f"{dcr_label} – overlap westlake (n={len(sub_hl)})"
                     cd = sub_hl[cd_cols].fillna("").values
                     fig.add_trace(go.Scatter(
                         x=sub_hl["pmt_id"].astype(str), y=sub_hl[y_column],
@@ -689,15 +704,34 @@ def plot_trend_scatter(
                             "notes: %{customdata[3]}<extra></extra>"
                         ),
                     ))
+                # overlap xr → purple square
+                if len(sub_hl) > 0 and rt == "xr":
+                    sub_hl_label = f"{dcr_label} – overlap xr (n={len(sub_hl)})"
+                    cd = sub_hl[cd_cols].fillna("").values
+                    fig.add_trace(go.Scatter(
+                        x=sub_hl["pmt_id"].astype(str), y=sub_hl[y_column],
+                        mode="markers+text" if is_high else "markers",
+                        name=sub_hl_label,
+                        marker=dict(color=COLOR_HIGHLIGHT, symbol="square-open", size=10, line=dict(width=2, color=COLOR_HIGHLIGHT)),
+                        text=sub_hl["pmt_id"].astype(str) if is_high else None,
+                        textposition="top center", textfont=dict(color=COLOR_HIGHLIGHT, size=9),
+                        customdata=cd,
+                        hovertemplate=(
+                            f"pmt_id: %{{x}}<br>{y_label}: %{{y:.1f}}<br>"
+                            "run_id: %{customdata[0]}<br>"
+                            "hv: %{customdata[1]}<br>"
+                            "notes: %{customdata[3]}<extra></extra>"
+                        ),
+                    ))
                 if len(sub_norm) > 0:
                     cd = sub_norm[cd_cols].fillna("").values
                     fig.add_trace(go.Scatter(
                         x=sub_norm["pmt_id"].astype(str), y=sub_norm[y_column],
                         mode="markers+text" if is_high else "markers",
                         name=f"{dcr_label} – {rt_label} (n={len(sub_norm)})",
-                        marker=dict(color=marker_color, symbol=marker_symbol, size=9, line=dict(width=1, color=marker_color)),
+                        marker=dict(color=color, symbol=symbol, size=9, line=dict(width=1, color=color)),
                         text=sub_norm["pmt_id"].astype(str) if is_high else None,
-                        textposition="top center", textfont=dict(color=marker_color, size=9),
+                        textposition="top center", textfont=dict(color=color, size=9),
                         customdata=cd,
                         hovertemplate=(
                             f"pmt_id: %{{x}}<br>{y_label}: %{{y:.1f}}<br>"
@@ -726,12 +760,28 @@ def plot_trend_scatter(
                 continue
             sub_hl = sub[sub["pmt_id"].isin(highlight_pmts)]
             sub_norm = sub[~sub["pmt_id"].isin(highlight_pmts)]
+            # overlap westlake → green circle-open
             if rt == "numeric" and len(sub_hl) > 0:
                 cd = sub_hl[cd_cols].fillna("").values
                 fig.add_trace(go.Scatter(
                     x=sub_hl["pmt_id"].astype(str), y=sub_hl[y_column],
-                    mode="markers", name="overlap (xr + westlake)",
+                    mode="markers", name="overlap westlake",
                     marker=dict(color=COLOR_HIGHLIGHT_ER, symbol="circle-open", size=12, line=dict(width=2, color=COLOR_HIGHLIGHT_ER)),
+                    customdata=cd,
+                    hovertemplate=(
+                        f"pmt_id: %{{x}}<br>{y_label}: %{{y:.4f}}<br>"
+                        "run_id: %{customdata[0]}<br>"
+                        "hv: %{customdata[1]}<br>"
+                        "notes: %{customdata[3]}<extra></extra>"
+                    ),
+                ))
+            # overlap xr → green square-open
+            if rt == "xr" and len(sub_hl) > 0:
+                cd = sub_hl[cd_cols].fillna("").values
+                fig.add_trace(go.Scatter(
+                    x=sub_hl["pmt_id"].astype(str), y=sub_hl[y_column],
+                    mode="markers", name="overlap xr",
+                    marker=dict(color=COLOR_HIGHLIGHT_ER, symbol="square-open", size=12, line=dict(width=2, color=COLOR_HIGHLIGHT_ER)),
                     customdata=cd,
                     hovertemplate=(
                         f"pmt_id: %{{x}}<br>{y_label}: %{{y:.4f}}<br>"
@@ -786,15 +836,30 @@ def plot_trend_scatter(
                 "notes: %{customdata[3]}<extra></extra>"
             ),
         ))
-        # 正常 highlight
-        norm_hl = normal[normal["pmt_id"].isin(highlight_pmts)]
-        if len(norm_hl) > 0:
-            cd_hl = norm_hl[cd_cols].fillna("").values
+        # overlap westlake (numeric)
+        norm_hl_numeric = normal[(normal["pmt_id"].isin(highlight_pmts)) & (normal["_run_type"] == "numeric")]
+        if len(norm_hl_numeric) > 0:
+            cd_hl = norm_hl_numeric[cd_cols].fillna("").values
             fig.add_trace(go.Scatter(
-                x=norm_hl["pmt_id"].astype(str), y=norm_hl["app_pct"],
-                mode="markers", name="overlap (xr + westlake)",
+                x=norm_hl_numeric["pmt_id"].astype(str), y=norm_hl_numeric["app_pct"],
+                mode="markers", name="overlap westlake",
                 marker=dict(color=COLOR_HIGHLIGHT, symbol="diamond-open", size=12, line=dict(width=2, color=COLOR_HIGHLIGHT)),
                 customdata=cd_hl,
+                hovertemplate=(
+                    f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}%<br>"
+                    "run_id: %{customdata[0]}<br>"
+                    "notes: %{customdata[3]}<extra></extra>"
+                ),
+            ))
+        # overlap xr
+        norm_hl_xr = normal[(normal["pmt_id"].isin(highlight_pmts)) & (normal["_run_type"] == "xr")]
+        if len(norm_hl_xr) > 0:
+            cd_hl_xr = norm_hl_xr[cd_cols].fillna("").values
+            fig.add_trace(go.Scatter(
+                x=norm_hl_xr["pmt_id"].astype(str), y=norm_hl_xr["app_pct"],
+                mode="markers", name="overlap xr",
+                marker=dict(color=COLOR_HIGHLIGHT, symbol="triangle-up-open", size=12, line=dict(width=2, color=COLOR_HIGHLIGHT)),
+                customdata=cd_hl_xr,
                 hovertemplate=(
                     f"pmt_id: %{{x}}<br>{y_label}: %{{y:.2f}}%<br>"
                     "run_id: %{customdata[0]}<br>"
