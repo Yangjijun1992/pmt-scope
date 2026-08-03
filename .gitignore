@@ -5,17 +5,16 @@ __pycache__/
 .DS_Store
 .env
 *.env
-*.csv
 .streamlit/secrets.toml
 .pmtscope.pid
 pmtscope.log
 sync.log
 
-data/
+data/*
 !data/pmt_data.csv
 !data/run_ids.csv
 
-docs/
+docs/*
 !docs/overlap_pmt_ids.csv
 
 # Keep web/ requirements.txt for deployment
