@@ -4,14 +4,14 @@
   - dark_count_rate < 1000 Hz
   - spe_gain > 2
   - energy_resolution < 0.5
-  - 在满足上述三条件的 pmt_id 中，排除其任意一条 after_pulse_probability > 0.1 的 PMT；
+  - 在满足上述三条件的 pmt_id 中，排除其任意一条 after_pulse_probability > 0.05 的 PMT；
     若该 pmt_id 没有任何 after_pulse 测试记录，则保留该 pmt_id。
 
 算法：
   1. SQL 按 (pmt_id, channel_id, run_id) 聚合取各指标 AVG 值
   2. 按 pmt_id 聚合：取 min(dark_count_rate)、max(spe_gain 仅限 hv=800)、min(energy_resolution)
   3. 筛选同时满足前三条件的 pmt_id 候选集
-  4. 对候选集中的 pmt_id，逐一检查数据库中是否存在 after_pulse_probability > 0.1 的记录（原始表直查）
+  4. 对候选集中的 pmt_id，逐一检查数据库中是否存在 after_pulse_probability > 0.05 的记录（原始表直查）
   5. 如果有违规记录则排除；如果无 after_pulse 记录则保留
 """
 
@@ -29,7 +29,7 @@ DB_PATH = os.path.join(
 DCR_MAX = 1000.0
 GAIN_MIN = 2.0
 ER_MAX = 0.5
-APP_MAX = 0.1
+APP_MAX = 0.05
 
 
 def select_candidates(
@@ -81,9 +81,9 @@ def select_candidates(
     """
     df = pd.read_sql_query(query, conn)
 
-    # 步骤 2: spe_gain 只取 hv=800 的数据，按 pmt_id 聚合取最大值
+    # 步骤 2: spe_gain 取 hv=800 的数据（NULL 视为 800），按 pmt_id 聚合取最大值
     gain_hv800 = (
-        df[df["hv"] == 800]
+        df[(df["hv"] == 800) | (df["hv"].isna())]
         .groupby("pmt_id")["spe_gain"]
         .max()
         .reset_index()
@@ -134,11 +134,31 @@ def select_candidates(
         if cur.fetchone() is not None:
             with_app.add(pid)
 
+    # 统计每个候选 pmt 的最大 after_pulse_probability
+    app_map = {}
+    for pid in candidate_ids:
+        cur = conn.execute(
+            "SELECT MAX(after_pulse_probability) FROM measurements"
+            " WHERE pmt_id = ? AND after_pulse_probability IS NOT NULL",
+            (pid,),
+        )
+        row = cur.fetchone()
+        app_map[pid] = row[0] if row is not None else None
+
     conn.close()
 
     # 过滤
     final_ids = set(candidate_ids) - failures
     candidates = candidates[candidates["pmt_id"].isin(final_ids)].copy()
+
+    # 添加 app（百分比）和 has_app 列
+    candidates["app"] = candidates["pmt_id"].map(
+        lambda pid: round((app_map[pid] * 100), 2) if app_map.get(pid) is not None else None
+    )
+    candidates["has_app"] = candidates["pmt_id"].map(
+        lambda pid: app_map.get(pid) is not None
+    )
+
     candidates.sort_values("pmt_id", inplace=True)
     candidates.reset_index(drop=True, inplace=True)
 
@@ -173,30 +193,45 @@ def main():
     print(f"\n总 PMT 数: {summary['total_pmts']}")
     print(f"最终候选 PMT 数: {summary['final_count']}")
     print(f"\n最终候选 PMT 列表:")
-    print("-" * 62)
+    print("-" * 74)
     print(
         f"{'pmt_id':<20s}"
         f"{'min_dcr':>10s}"
         f"{'gain_800v':>10s}"
         f"{'min_er':>10s}"
+        f"{'app_pct':>9s}"
         f"{'records':>8s}"
     )
-    print("-" * 62)
+    print("-" * 74)
 
     for _, row in candidates.iterrows():
         gain = row['spe_gain_at_800v']
         gain_str = f"{gain:.2f}" if pd.notna(gain) else "  -"
+        app = row['app']
+        app_str = f"{app:.2f}%" if pd.notna(app) else "  -"
         print(
             f"{row['pmt_id']:<20s}"
             f"{row['min_dark_count_rate']:>10.2f}"
             f"{gain_str:>10s}"
             f"{row['min_energy_resolution']:>10.4f}"
+            f"{app_str:>9s}"
             f"{row['n_records']:>8d}"
         )
 
-    print("-" * 62)
+    print("-" * 74)
 
     if len(candidates) > 0:
+        candidates = candidates[
+            [
+                "pmt_id",
+                "min_dark_count_rate",
+                "spe_gain_at_800v",
+                "min_energy_resolution",
+                "app",
+                "has_app",
+                "n_records",
+            ]
+        ]
         candidates.to_csv("candidates.csv", index=False, float_format="%.4f")
         print("\n结果已保存到 candidates.csv")
 

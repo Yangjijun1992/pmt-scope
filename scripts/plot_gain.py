@@ -1,6 +1,6 @@
 """plot_gain.py — SPE Gain 独立绘图脚本
 
-图1: 直方图，bins=30，x_range=[0, 20]，去除 hv > 800V 数据
+图1: 直方图，bins=30，x_range=[0, 20]，只纳入 hv = 800 数据，西湖未标注 hv 视为 800
 图2: vs PMT ID 散点图，3σ 离群点标注
      - xr* run_id: 三角形 (^)
      - 纯数字 run_id: 圆形 (o)
@@ -27,10 +27,9 @@ SIGMA_MULTIPLIER = 3.0
 
 COLOR_BAR = "#4C78A8"
 COLOR_MEDIAN = "#333333"
-COLOR_XR = "#D62728"
-COLOR_NUM = "#2B6FB3"
+COLOR_XR = "#2CA02C"        # green: USTC (科大)
+COLOR_NUM = "#2B6FB3"       # blue: Westlake (西湖)
 COLOR_OUTLIER = "#D62728"
-COLOR_OVERLAP = "#9467BD"   # 紫色: 科大+西湖重复计数 PMT
 
 
 def _load_overlap_pmts() -> set:
@@ -54,13 +53,11 @@ def load_data(db_path: str) -> pd.DataFrame:
                AVG(spe_gain) AS spe_gain
         FROM measurements
         WHERE spe_gain IS NOT NULL
+          AND (hv = 800 OR hv IS NULL)
         GROUP BY pmt_id, channel_id, run_id
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
-
-    # Remove records with hv > 800V
-    df = df[df["hv"] <= 800].copy()
 
     df["run_type"] = df["run_id"].apply(
         lambda x: "xr" if bool(re.match(r"^xr", str(x))) else "numeric"
@@ -79,7 +76,7 @@ def plot_histogram(df: pd.DataFrame, out_path: str):
 
     ax.set_xlabel("Gain [e$^{-}$]", fontsize=16, x=0.94, ha="right")
     ax.set_ylabel("Counts", fontsize=16)
-    ax.set_title("SPE Gain Distribution (hv ≤ 800 V)", fontsize=18, fontweight="bold")
+    ax.set_title("SPE Gain Distribution (hv = 800 V, NULL→800)", fontsize=18, fontweight="bold")
     ax.set_xlim(GAIN_X_MIN, GAIN_X_MAX)
     ax.tick_params(axis="both", labelsize=14)
     ax.grid(axis="y", alpha=0.3)
@@ -107,54 +104,71 @@ def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
 
     xr_normal = df[(df["run_type"] == "xr") & is_normal]
     xr_outlier = df[(df["run_type"] == "xr") & is_outlier]
-    num_normal_nohl = df[(df["run_type"] == "numeric") & is_normal & ~is_overlap]
-    num_normal_hl = df[(df["run_type"] == "numeric") & is_normal & is_overlap]
-    num_outlier_nohl = df[(df["run_type"] == "numeric") & is_outlier & ~is_overlap]
-    num_outlier_hl = df[(df["run_type"] == "numeric") & is_outlier & is_overlap]
+    num_normal = df[(df["run_type"] == "numeric") & is_normal]
+    num_outlier = df[(df["run_type"] == "numeric") & is_outlier]
 
-    # xr tested — triangle
+    # USTC (xr) — green triangle
     if len(xr_normal) > 0:
         ax.scatter(xr_normal.index, xr_normal["spe_gain"],
-                   c=COLOR_XR, marker="^", s=50, zorder=3, alpha=0.85,
+                   c=COLOR_XR, marker="^", s=55, zorder=3, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"xr tested (n={len(xr_normal)})")
+                   label=f"USTC (n={len(xr_normal)})")
     if len(xr_outlier) > 0:
         ax.scatter(xr_outlier.index, xr_outlier["spe_gain"],
                    c=COLOR_XR, marker="^", s=80, zorder=5, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"xr tested outlier (n={len(xr_outlier)})")
+                   label=f"USTC outlier (n={len(xr_outlier)})")
 
-    # westlake tested normal — circle (non-overlap)
-    if len(num_normal_nohl) > 0:
-        ax.scatter(num_normal_nohl.index, num_normal_nohl["spe_gain"],
+    # Westlake (numeric) — blue circle
+    if len(num_normal) > 0:
+        ax.scatter(num_normal.index, num_normal["spe_gain"],
                    c=COLOR_NUM, marker="o", s=40, zorder=2, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"westlake tested (n={len(num_normal_nohl)})")
-    # westlake tested normal — overlap (紫色空心圆)
-    if len(num_normal_hl) > 0:
-        ax.scatter(num_normal_hl.index, num_normal_hl["spe_gain"],
-                   c=COLOR_OVERLAP, marker="D", s=60, zorder=6, alpha=0.9,
-                   edgecolors=COLOR_OVERLAP, linewidths=1.5,
-                   label=f"overlap xr+westlake (n={len(num_normal_hl)})")
-    # westlake tested outlier — non-overlap
-    if len(num_outlier_nohl) > 0:
-        ax.scatter(num_outlier_nohl.index, num_outlier_nohl["spe_gain"],
+                   label=f"Westlake (n={len(num_normal)})")
+    if len(num_outlier) > 0:
+        ax.scatter(num_outlier.index, num_outlier["spe_gain"],
                    c=COLOR_NUM, marker="o", s=70, zorder=4, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"westlake tested outlier (n={len(num_outlier_nohl)})")
-    # westlake tested outlier — overlap
-    if len(num_outlier_hl) > 0:
-        ax.scatter(num_outlier_hl.index, num_outlier_hl["spe_gain"],
-                   c=COLOR_OVERLAP, marker="D", s=80, zorder=7, alpha=0.9,
-                   edgecolors=COLOR_OVERLAP, linewidths=1.5,
-                   label=f"overlap outlier (n={len(num_outlier_hl)})")
+                   label=f"Westlake outlier (n={len(num_outlier)})")
 
-    # Annotate outliers (both overlap and non-overlap)
+    # Mark overlap PMTs (tested at both USTC and Westlake)
+    overlap_df = df[is_overlap]
+
+    # Draw one dashed vertical connector between USTC and Westlake representative
+    # points (mean of xr points and mean of numeric points) when both are present.
+    for pid, group in overlap_df.groupby("pmt_id"):
+        xr_group = group[group["run_type"] == "xr"]
+        num_group = group[group["run_type"] == "numeric"]
+        if len(xr_group) > 0 and len(num_group) > 0:
+            xr_x = np.mean(xr_group.index)
+            num_x = np.mean(num_group.index)
+            xr_y = xr_group["spe_gain"].mean()
+            num_y = num_group["spe_gain"].mean()
+            ax.plot([xr_x, num_x], [xr_y, num_y],
+                    color="#8E44AD", linestyle="--", linewidth=1.2,
+                    alpha=0.7, zorder=1.5, solid_capstyle="round")
+
+    # Ring every overlap point (whether 1 or 2 present) so overlap PMTs are clearly
+    # identified even when only a single site's point is present.
+    if len(overlap_df) > 0:
+        ax.scatter(overlap_df.index, overlap_df["spe_gain"],
+                   c="none", marker="o", s=110, zorder=6, linewidths=1.6,
+                   edgecolors="#E91E63", alpha=0.9)
+
+    # Legend entry for the overlap identifier(s)
+    if len(overlap_df) > 0:
+        ax.plot([], [], "--", color="#8E44AD", linewidth=1.2, alpha=0.7,
+                label="overlap: USTC + Westlake")
+        ax.scatter([], [], c="none", marker="o", s=110, linewidths=1.6,
+                   edgecolors="#E91E63", alpha=0.9,
+                   label=f"overlap ring (n={len(overlap_df)})")
+
+    # Annotate outliers
     outlier_indices = df[is_outlier].index
     for i in outlier_indices:
         val = df.loc[i, "spe_gain"]
         pid = df.loc[i, "pmt_id"]
-        color = COLOR_OVERLAP if df.loc[i, "pmt_id"] in overlap_pmts else COLOR_OUTLIER
+        color = COLOR_NUM if df.loc[i, "run_type"] == "numeric" else COLOR_XR
         ax.annotate(pid, (i, val), textcoords="offset points", xytext=(0, 12),
                     ha="center", fontsize=7, color=color, fontweight="bold")
 
@@ -166,7 +180,7 @@ def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
     ax.set_xticklabels(df["pmt_id"], rotation=90, fontsize=5)
     ax.set_xlabel("PMT ID", fontsize=12)
     ax.set_ylabel("Gain [e$^{-}$]", fontsize=12)
-    ax.set_title("SPE Gain vs PMT ID  (◈ = overlap xr+westlake)", fontsize=14, fontweight="bold")
+    ax.set_title("SPE Gain vs PMT ID  (▲ = USTC, ● = Westlake)", fontsize=14, fontweight="bold")
     ax.legend(loc="upper left", fontsize=9)
     ax.grid(axis="y", alpha=0.3)
     ax.set_xlim(-0.5, len(df) - 0.5)
@@ -182,7 +196,7 @@ def main():
     overlap_pmts = _load_overlap_pmts()
     print(f"Overlap PMTs loaded: {len(overlap_pmts)}")
     df = load_data(DB_PATH)
-    print(f"Loaded {len(df)} records (hv ≤ 800 V) with SPE gain")
+    print(f"Loaded {len(df)} records (hv=800 or hv NULL, Westlake NULL→800V) with SPE gain")
     print(f"  xr tested:        {len(df[df['run_type'] == 'xr'])}")
     print(f"  westlake tested:  {len(df[df['run_type'] == 'numeric'])}")
     print(f"  Overlap PMTs:     {len(df[df['pmt_id'].isin(overlap_pmts)])}")

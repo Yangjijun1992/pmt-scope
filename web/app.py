@@ -310,8 +310,8 @@ else:
 st.header("📈 参数 vs. PMT ID 趋势散点图")
 
 if OVERLAP_PMTS:
-    st.caption(f"🟣 紫色空心标记 = 科大+西湖均测的重复 PMT（共 {len(OVERLAP_PMTS)} 只）；"
-               f"🟢 绿色空心标记 (energy resolution) = 重复 PMT")
+    st.caption(f"▲ 绿色 = 科大 (USTC)；● 蓝色 = 西湖 (Westlake)；"
+               f"🟣 紫色虚线 + 品红圆环 = 两份均测的重复 PMT（共 {len(OVERLAP_PMTS)} 只）")
 
 y_labels = {
     "spe_gain": "Gain [1.E6 e⁻]",
@@ -415,11 +415,10 @@ st.divider()
 st.header("📋 PMT 候选筛选汇总")
 
 rows = [
-    {"Case": 1, "Dark Rate": "< 1000 Hz", "SPE Gain": "> 5",      "APP": "< 5%", "候选数": 19,  "数据全集": 46,  "比例": "41.3%"},
-    {"Case": 2, "Dark Rate": "< 1500 Hz", "SPE Gain": "> 2",      "APP": "—",    "候选数": 111, "数据全集": 146, "比例": "76.0%"},
-    {"Case": 3, "Dark Rate": "< 2000 Hz", "SPE Gain": "> 2",      "APP": "—",    "候选数": 118, "数据全集": 146, "比例": "80.8%"},
-    {"Case": 4, "Dark Rate": "< 1000 Hz", "SPE Gain": "> 2",      "APP": "—",    "候选数": 91,  "数据全集": 146, "比例": "62.3%"},
+    {"Dark Rate": "< 1000 Hz", "SPE Gain": "> 2 @800V", "Energy Resolution": "< 0.5", "After-Pulse": "≤ 5%（无 APP 数据则保留）", "候选数": 71, "数据全集": 146, "比例": "48.6%"},
 ]
 summary_df = pd.DataFrame(rows)
 st.dataframe(summary_df, width="stretch", hide_index=True)
-st.caption("数据源：pmt-data-client/data/pmt_data.db · 总 PMT 数 146，APP 数据仅 46 个 PMT")
+st.caption("数据源：pmt-data-client/data/pmt_data.db · 官方筛选标准（scripts/select_candidates.py）："
+           "Dark Count Rate < 1000 Hz，SPE Gain @800V (NULL→800) > 2，"
+           "Energy Resolution < 0.5，After-Pulse 排除 > 5%（无 APP 数据保留）· 共 71/146 只候选 PMT (48.6%)")

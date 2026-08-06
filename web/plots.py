@@ -30,7 +30,12 @@ COLOR_MID = "#E8652D"
 COLOR_HIGH = "#D62728"
 COLOR_GAIN = "#4C78A8"
 COLOR_APP = "#4C78A8"
-COLOR_HIGHLIGHT = "#9467BD"   # 紫色: 重复计数 PMT
+
+# 统一着色: USTC 绿色三角 / Westlake 蓝色圆
+COLOR_XR = "#2CA02C"      # green: USTC (科大)
+COLOR_NUM = "#2B6FB3"     # blue: Westlake (西湖)
+COLOR_HIGHLIGHT = "#8E44AD"   # 紫色虚线: 重复 PMT 连接线
+COLOR_OVERLAP_RING = "#E91E63"  # 品红圆环: 重复 PMT 标记
 COLOR_HIGHLIGHT_ER = "#2CA02C" # 绿色: 重复计数 PMT (energy_resolution)
 
 
@@ -279,8 +284,8 @@ def plot_3d_scatter(
 # 重复 PMT 两次测试对比图
 # ══════════════════════════════════════════════════════════════════
 
-COLOR_XR = "#D62728"
-COLOR_WL = "#2B6FB3"
+COLOR_XR = "#2CA02C"      # green: USTC (科大)
+COLOR_WL = "#2B6FB3"       # blue: Westlake (西湖)
 
 
 def plot_overlap_dcr_scatter(
@@ -391,7 +396,7 @@ def plot_overlap_er_scatter(
     """
     import re as _re
 
-    valid = df["energy_res"].notna()
+    valid = df["energy_resolution"].notna()
     plot_df = df[valid].copy()
 
     if "run_id" in plot_df.columns:
@@ -401,7 +406,7 @@ def plot_overlap_er_scatter(
     else:
         return go.Figure()
 
-    agg = plot_df.groupby(["pmt_id", "_run_type"])["energy_res"].mean().reset_index()
+    agg = plot_df.groupby(["pmt_id", "_run_type"])["energy_resolution"].mean().reset_index()
     agg.sort_values("pmt_id", inplace=True)
 
     pmt_ids = sorted(agg["pmt_id"].unique())
@@ -413,8 +418,8 @@ def plot_overlap_er_scatter(
         xr_row = sub[sub["_run_type"] == "xr"]
         num_row = sub[sub["_run_type"] == "numeric"]
 
-        xr_val = xr_row["energy_res"].values[0] if len(xr_row) > 0 else None
-        num_val = num_row["energy_res"].values[0] if len(num_row) > 0 else None
+        xr_val = xr_row["energy_resolution"].values[0] if len(xr_row) > 0 else None
+        num_val = num_row["energy_resolution"].values[0] if len(num_row) > 0 else None
 
         if xr_val is not None and num_val is not None:
             fig.add_trace(go.Scatter(
@@ -467,12 +472,12 @@ def plot_overlap_gain_scatter(
     df: pd.DataFrame,
     title: str = "Overlap PMT SPE Gain: USTC vs Westlake",
 ) -> go.Figure:
-    """重复 PMT 的 SPE Gain 散点对比图 (hv ≤ 800V)。"""
+    """重复 PMT 的 SPE Gain 散点对比图 (hv = 800V, NULL→800V)。"""
     import re as _re
 
     plot_df = df.copy()
     if "hv" in plot_df.columns:
-        plot_df = plot_df[plot_df["hv"] <= 800]
+        plot_df = plot_df[(plot_df["hv"] == 800) | (plot_df["hv"].isna())]
 
     valid = plot_df["spe_gain"].notna()
     plot_df = plot_df[valid].copy()
@@ -586,7 +591,8 @@ def plot_trend_scatter(
     cd_cols = [c for c in ["run_id", "hv", "temperature", "notes"] if c in plot_df.columns]
 
     if y_column == "spe_gain":
-        plot_df = plot_df[plot_df.get("hv", 0) <= 800].copy()
+        if "hv" in plot_df.columns:
+            plot_df = plot_df[(plot_df["hv"] == 800) | (plot_df["hv"].isna())].copy()
         plot_df.sort_values("pmt_id", inplace=True)
         center_val = compute_center(plot_df[y_column], method=center_method)
 
@@ -600,7 +606,7 @@ def plot_trend_scatter(
 
         fig = go.Figure()
 
-        COLOR_XR = "#9B59B6"    # USTC 紫色
+        COLOR_XR = "#2CA02C"    # USTC 绿色
         COLOR_WL = "#2B6FB3"    # westlake 蓝色
 
         for sub, marker, color, label_tag in [
@@ -650,7 +656,7 @@ def plot_trend_scatter(
         plot_df = pd.concat([xr_df, num_df], ignore_index=True)
         plot_df.sort_values("pmt_id", inplace=True)
 
-        COLOR_XR = "#9B59B6"    # USTC 紫色
+        COLOR_XR = "#2CA02C"    # USTC 绿色
         COLOR_WL = "#2B6FB3"    # westlake 蓝色
 
         fig = go.Figure()
@@ -693,7 +699,7 @@ def plot_trend_scatter(
         plot_df.sort_values("pmt_id", inplace=True)
         center_val = compute_center(plot_df[y_column], method=center_method)
 
-        COLOR_XR = "#9B59B6"    # USTC 紫色
+        COLOR_XR = "#2CA02C"    # USTC 绿色
         COLOR_WL = "#2B6FB3"    # westlake 蓝色
 
         fig = go.Figure()
@@ -799,6 +805,43 @@ def plot_trend_scatter(
                 ))
         fig.add_hline(y=center_val, line_dash="dash", line_color="gray", line_width=2,
                       annotation_text=f"{center_method}: {center_val:.3g}", annotation_position="top right")
+
+    # ── Overlap PMT 标记 (spe_gain / dark_count_rate / energy_resolution) ──
+    # 品红圆环圈出每个在两份均测的 PMT 数据点；若同一 pmt 同时有 xr 和 numeric 点，
+    # 用紫色虚线连接二者的 mean y 值。
+    if y_column in ("spe_gain", "dark_count_rate", "energy_resolution") and highlight_pmts:
+        overlap_mask = plot_df["pmt_id"].isin(highlight_pmts)
+        ring_df = plot_df[overlap_mask].copy()
+        ring_df["_y"] = ring_df[y_column].astype(float)
+
+        if len(ring_df) > 0:
+            fig.add_trace(go.Scatter(
+                x=ring_df["pmt_id"].astype(str), y=ring_df["_y"],
+                mode="markers",
+                name="overlap ring",
+                legendgroup="overlap_ring",
+                marker=dict(color="rgba(0,0,0,0)", size=14,
+                            line=dict(color="#E91E63", width=2)),
+                hoverinfo="skip",
+                showlegend=True,
+            ))
+
+        for pid in sorted(plot_df["pmt_id"].unique()):
+            grp = plot_df[(plot_df["pmt_id"] == pid)]
+            xr_grp = grp[grp["_run_type"] == "xr"]
+            num_grp = grp[grp["_run_type"] == "numeric"]
+            if pid in highlight_pmts and len(xr_grp) > 0 and len(num_grp) > 0:
+                xr_y = xr_grp[y_column].astype(float).mean()
+                num_y = num_grp[y_column].astype(float).mean()
+                fig.add_trace(go.Scatter(
+                    x=[str(pid), str(pid)], y=[xr_y, num_y],
+                    mode="lines",
+                    name="overlap: USTC + Westlake",
+                    legendgroup="overlap_line",
+                    line=dict(color="#8E44AD", dash="dash", width=1.2),
+                    hoverinfo="skip",
+                    showlegend=(pid == sorted(plot_df["pmt_id"].unique())[0]),
+                ))
 
     fig.update_layout(
         title=title,

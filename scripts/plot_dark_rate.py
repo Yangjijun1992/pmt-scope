@@ -31,7 +31,8 @@ COLOR_LOW = "#2B6FB3"       # blue
 COLOR_MID = "#E8652D"       # orange
 COLOR_HIGH = "#D62728"      # red
 COLOR_MEDIAN = "#333333"
-COLOR_OVERLAP = "#9467BD"   # 紫色: 科大+西湖重复计数 PMT
+COLOR_XR = "#2CA02C"        # green: USTC (科大)
+COLOR_NUM = "#2B6FB3"       # blue: Westlake (西湖)
 
 
 def _load_overlap_pmts() -> set:
@@ -128,42 +129,68 @@ def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
     mid_mask = (df["dark_count_rate"] >= THRESHOLD_LOW) & (df["dark_count_rate"] <= THRESHOLD_HIGH)
     high_mask = df["dark_count_rate"] > THRESHOLD_HIGH
 
-    # Plot by DCR range, with marker shape by run_type, overlap highlighted
+    # Plot by DCR range, with USTC (green triangle) / Westlake (blue circle)
     for mask, color, dcr_label in [
         (low_mask, COLOR_LOW, f"< {THRESHOLD_LOW:.0f} Hz"),
         (mid_mask, COLOR_MID, f"{THRESHOLD_LOW:.0f}–{THRESHOLD_HIGH:.0f} Hz"),
         (high_mask, COLOR_HIGH, f"> {THRESHOLD_HIGH:.0f} Hz"),
     ]:
         subset = df[mask]
-        is_overlap_sub = is_overlap.loc[subset.index]
         xr_sub = subset[subset["run_type"] == "xr"]
-        num_sub_nohl = subset[(subset["run_type"] == "numeric") & ~is_overlap_sub]
-        num_sub_hl = subset[(subset["run_type"] == "numeric") & is_overlap_sub]
+        num_sub = subset[subset["run_type"] == "numeric"]
 
         if len(xr_sub) > 0:
             ax.scatter(xr_sub.index, xr_sub["dark_count_rate"],
-                       c=color, marker="s", s=50, zorder=4, alpha=0.85,
+                       c=COLOR_XR, marker="^", s=55, zorder=4, alpha=0.85,
                        edgecolors="white", linewidths=0.3,
-                       label=f"{dcr_label} – xr tested (n={len(xr_sub)})")
-        if len(num_sub_nohl) > 0:
-            ax.scatter(num_sub_nohl.index, num_sub_nohl["dark_count_rate"],
-                       c=color, marker="o", s=40, zorder=3, alpha=0.85,
+                       label=f"{dcr_label} – USTC (n={len(xr_sub)})")
+        if len(num_sub) > 0:
+            ax.scatter(num_sub.index, num_sub["dark_count_rate"],
+                       c=COLOR_NUM, marker="o", s=40, zorder=3, alpha=0.85,
                        edgecolors="white", linewidths=0.3,
-                       label=f"{dcr_label} – westlake tested (n={len(num_sub_nohl)})")
-        if len(num_sub_hl) > 0:
-            ax.scatter(num_sub_hl.index, num_sub_hl["dark_count_rate"],
-                       c=COLOR_OVERLAP, marker="D", s=60, zorder=7, alpha=0.9,
-                       edgecolors=COLOR_OVERLAP, linewidths=1.5,
-                       label=f"{dcr_label} – overlap (n={len(num_sub_hl)})")
+                       label=f"{dcr_label} – Westlake (n={len(num_sub)})")
+
+    # Mark overlap PMTs (tested at both USTC and Westlake)
+    overlap_df = df[is_overlap]
+
+    # Draw one dashed vertical connector between USTC and Westlake representative
+    # points (mean of xr points and mean of numeric points) when both are present.
+    for pid, group in overlap_df.groupby("pmt_id"):
+        xr_group = group[group["run_type"] == "xr"]
+        num_group = group[group["run_type"] == "numeric"]
+        if len(xr_group) > 0 and len(num_group) > 0:
+            xr_x = np.mean(xr_group.index)
+            num_x = np.mean(num_group.index)
+            xr_y = xr_group["dark_count_rate"].mean()
+            num_y = num_group["dark_count_rate"].mean()
+            ax.plot([xr_x, num_x], [xr_y, num_y],
+                    color="#8E44AD", linestyle="--", linewidth=1.2,
+                    alpha=0.7, zorder=1.5, solid_capstyle="round")
+
+    # Ring every overlap point (whether 1 or 2 present) so overlap PMTs are clearly
+    # identified even when only a single site's point survives filtering.
+    if len(overlap_df) > 0:
+        ax.scatter(overlap_df.index, overlap_df["dark_count_rate"],
+                   c="none", marker="o", s=110, zorder=6, linewidths=1.6,
+                   edgecolors="#E91E63", alpha=0.9)
+        # (legend entry below)
 
     # Annotate high-DCR PMTs (>2000 Hz)
     high_subset = df[high_mask]
     for i in high_subset.index:
         val = df.loc[i, "dark_count_rate"]
         pid = df.loc[i, "pmt_id"]
-        color = COLOR_OVERLAP if df.loc[i, "pmt_id"] in overlap_pmts else COLOR_HIGH
+        color = COLOR_NUM if df.loc[i, "run_type"] == "numeric" else COLOR_XR
         ax.annotate(pid, (i, val), textcoords="offset points", xytext=(0, 12),
                     ha="center", fontsize=7, color=color, fontweight="bold")
+
+    # Legend entry for the overlap identifier(s)
+    if len(overlap_df) > 0:
+        ax.plot([], [], "--", color="#8E44AD", linewidth=1.2, alpha=0.7,
+                label="overlap: USTC + Westlake")
+        ax.scatter([], [], c="none", marker="o", s=110, linewidths=1.6,
+                   edgecolors="#E91E63", alpha=0.9,
+                   label=f"overlap ring (n={len(overlap_df)})")
 
     # Threshold line
     ax.axhline(THRESHOLD_LOW, color=COLOR_MEDIAN, linestyle="--", linewidth=1.5,
@@ -173,7 +200,7 @@ def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
     ax.set_xticklabels(df["pmt_id"], rotation=90, fontsize=5)
     ax.set_xlabel("PMT ID", fontsize=12)
     ax.set_ylabel("Dark Count Rate [Hz]", fontsize=12)
-    ax.set_title("Dark Count Rate vs PMT ID  (◇ = overlap xr+westlake)", fontsize=14, fontweight="bold")
+    ax.set_title("Dark Count Rate vs PMT ID  (▲ = USTC, ● = Westlake)", fontsize=14, fontweight="bold")
     ax.legend(loc="upper left", fontsize=7)
     ax.grid(axis="y", alpha=0.3)
     ax.set_xlim(-0.5, len(df) - 0.5)

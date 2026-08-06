@@ -28,10 +28,10 @@ ER_BINS = 20
 ER_X_MIN, ER_X_MAX = 0.0, 1.0
 ER_THRESHOLD = 0.5
 
-COLOR_BLUE = "#2B6FB3"
+COLOR_XR = "#2CA02C"        # green: USTC (科大)
+COLOR_NUM = "#2B6FB3"       # blue: Westlake (西湖)
 COLOR_RED = "#D62728"
 COLOR_THRESHOLD = "#333333"
-COLOR_OVERLAP = "#9467BD"   # 紫色: 科大+西湖重复计数 PMT
 
 
 def _load_overlap_pmts() -> set:
@@ -76,7 +76,7 @@ def plot_histogram(df: pd.DataFrame, out_path: str):
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    ax.hist(df["energy_resolution"], bins=ER_BINS, color=COLOR_BLUE, alpha=0.85,
+    ax.hist(df["energy_resolution"], bins=ER_BINS, color=COLOR_NUM, alpha=0.85,
             edgecolor="white", linewidth=0.8)
 
     ax.axvline(ER_THRESHOLD, color=COLOR_RED, linestyle="--", linewidth=3.0,
@@ -108,46 +108,64 @@ def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
 
     xr_below = df[(df["run_type"] == "xr") & (df["energy_resolution"] < ER_THRESHOLD)]
     xr_above = df[(df["run_type"] == "xr") & (df["energy_resolution"] >= ER_THRESHOLD)]
-    num_below_nohl = df[(df["run_type"] == "numeric") & (df["energy_resolution"] < ER_THRESHOLD) & ~is_overlap]
-    num_below_hl = df[(df["run_type"] == "numeric") & (df["energy_resolution"] < ER_THRESHOLD) & is_overlap]
-    num_above_nohl = df[(df["run_type"] == "numeric") & (df["energy_resolution"] >= ER_THRESHOLD) & ~is_overlap]
-    num_above_hl = df[(df["run_type"] == "numeric") & (df["energy_resolution"] >= ER_THRESHOLD) & is_overlap]
+    num_below = df[(df["run_type"] == "numeric") & (df["energy_resolution"] < ER_THRESHOLD)]
+    num_above = df[(df["run_type"] == "numeric") & (df["energy_resolution"] >= ER_THRESHOLD)]
 
-    # xr run_id — square marker
+    # USTC (xr) — green triangle
     if len(xr_below) > 0:
         ax.scatter(xr_below.index, xr_below["energy_resolution"],
-                   c=COLOR_BLUE, marker="s", s=50, zorder=4, alpha=0.85,
+                   c=COLOR_XR, marker="^", s=55, zorder=4, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"xr tested (n={len(xr_below)})")
+                   label=f"USTC ER < {ER_THRESHOLD} (n={len(xr_below)})")
     if len(xr_above) > 0:
         ax.scatter(xr_above.index, xr_above["energy_resolution"],
-                   c=COLOR_RED, marker="s", s=50, zorder=4, alpha=0.85,
+                   c=COLOR_XR, marker="^", s=55, zorder=4, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"xr tested (n={len(xr_above)})")
+                   label=f"USTC ER ≥ {ER_THRESHOLD} (n={len(xr_above)})")
 
-    # numeric run_id — circle marker (non-overlap)
-    if len(num_below_nohl) > 0:
-        ax.scatter(num_below_nohl.index, num_below_nohl["energy_resolution"],
-                   c=COLOR_BLUE, marker="o", s=40, zorder=3, alpha=0.85,
+    # Westlake (numeric) — blue circle
+    if len(num_below) > 0:
+        ax.scatter(num_below.index, num_below["energy_resolution"],
+                   c=COLOR_NUM, marker="o", s=40, zorder=3, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"westlake tested (n={len(num_below_nohl)})")
-    if len(num_above_nohl) > 0:
-        ax.scatter(num_above_nohl.index, num_above_nohl["energy_resolution"],
-                   c=COLOR_RED, marker="o", s=40, zorder=3, alpha=0.85,
+                   label=f"Westlake ER < {ER_THRESHOLD} (n={len(num_below)})")
+    if len(num_above) > 0:
+        ax.scatter(num_above.index, num_above["energy_resolution"],
+                   c=COLOR_NUM, marker="o", s=40, zorder=3, alpha=0.85,
                    edgecolors="white", linewidths=0.3,
-                   label=f"westlake tested (n={len(num_above_nohl)})")
+                   label=f"Westlake ER ≥ {ER_THRESHOLD} (n={len(num_above)})")
 
-    # overlap — diamond marker (紫色)
-    if len(num_below_hl) > 0:
-        ax.scatter(num_below_hl.index, num_below_hl["energy_resolution"],
-                   c=COLOR_BLUE, marker="D", s=60, zorder=6, alpha=0.9,
-                   edgecolors=COLOR_OVERLAP, linewidths=1.5,
-                   label=f"overlap xr+westlake (n={len(num_below_hl)})")
-    if len(num_above_hl) > 0:
-        ax.scatter(num_above_hl.index, num_above_hl["energy_resolution"],
-                   c=COLOR_RED, marker="D", s=60, zorder=6, alpha=0.9,
-                   edgecolors=COLOR_OVERLAP, linewidths=1.5,
-                   label=f"overlap xr+westlake (n={len(num_above_hl)})")
+    # Mark overlap PMTs (tested at both USTC and Westlake)
+    overlap_df = df[is_overlap]
+
+    # Draw one dashed vertical connector between USTC and Westlake representative
+    # points (mean of xr points and mean of numeric points) when both are present.
+    for pid, group in overlap_df.groupby("pmt_id"):
+        xr_group = group[group["run_type"] == "xr"]
+        num_group = group[group["run_type"] == "numeric"]
+        if len(xr_group) > 0 and len(num_group) > 0:
+            xr_x = np.mean(xr_group.index)
+            num_x = np.mean(num_group.index)
+            xr_y = xr_group["energy_resolution"].mean()
+            num_y = num_group["energy_resolution"].mean()
+            ax.plot([xr_x, num_x], [xr_y, num_y],
+                    color="#8E44AD", linestyle="--", linewidth=1.2,
+                    alpha=0.7, zorder=1.5, solid_capstyle="round")
+
+    # Ring every overlap point (whether 1 or 2 present) so overlap PMTs are clearly
+    # identified even when only a single site's point is present.
+    if len(overlap_df) > 0:
+        ax.scatter(overlap_df.index, overlap_df["energy_resolution"],
+                   c="none", marker="o", s=110, zorder=6, linewidths=1.6,
+                   edgecolors="#E91E63", alpha=0.9)
+
+    # Legend entry for the overlap identifier(s)
+    if len(overlap_df) > 0:
+        ax.plot([], [], "--", color="#8E44AD", linewidth=1.2, alpha=0.7,
+                label="overlap: USTC + Westlake")
+        ax.scatter([], [], c="none", marker="o", s=110, linewidths=1.6,
+                   edgecolors="#E91E63", alpha=0.9,
+                   label=f"overlap ring (n={len(overlap_df)})")
 
     # Threshold line
     ax.axhline(ER_THRESHOLD, color=COLOR_THRESHOLD, linestyle="--", linewidth=1.5,
@@ -157,7 +175,7 @@ def plot_scatter(df: pd.DataFrame, out_path: str, overlap_pmts: set):
     ax.set_xticklabels(df["pmt_id"], rotation=90, fontsize=5)
     ax.set_xlabel("PMT ID", fontsize=12)
     ax.set_ylabel("Energy Resolution", fontsize=12)
-    ax.set_title("Energy Resolution vs PMT ID  (◇ = overlap xr+westlake)", fontsize=14, fontweight="bold")
+    ax.set_title("Energy Resolution vs PMT ID  (▲ = USTC, ● = Westlake)", fontsize=14, fontweight="bold")
     ax.legend(loc="upper left", fontsize=9)
     ax.grid(axis="y", alpha=0.3)
     ax.set_xlim(-0.5, len(df) - 0.5)

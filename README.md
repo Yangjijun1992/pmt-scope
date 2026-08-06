@@ -10,8 +10,31 @@
 - **三维参数空间分布图**：可旋转缩放，点击查看数据点详情
 - **趋势散点图**：参数 vs PMT ID，支持中心值线、离群点高亮
 - **离群点预警**：3σ / IQR 两种检测规则
-- **多 Run 对比**：直方图和趋势图支持同时对比多个 Run
+- **多站/多 Run 对比与重叠标记**：USTC（科大）与 Westlake（西湖）样式区分，重复测试 PMT 高亮
 - **快速查询面板**：按 pmt_id / run_id 查询，支持导出 CSV
+
+### 图表样式（Web 与 scripts/ 本地图保持一致）
+
+Web 端图表与 `scripts/plot_*.py` 使用同一套视觉风格：
+
+- **USTC（科大）**：run_id 以 `xr` 开头 → 绿色三角 `▲`（`#2CA02C`）
+- **Westlake（西湖）**：数字 run_id → 蓝色圆点 `●`（`#2B6FB3`）
+- **重复/重叠测试 PMT**（在两站都测过）：紫色虚线连接 + 洋红色（紫红）环标记
+- **共享散点类型**：SPE Gain、Dark Count Rate、Energy Resolution、After-Pulse Probability，外加 3 张重叠对比图（DCR / Gain / ER）
+- **SPE Gain 图**：`hv = 800` 过滤，NULL hv 按 800 V 处理（西湖记录常无 hv 设定）
+- **Dark Count Rate**：3 档着色（<1000 蓝 / 1000–2000 橙 / >2000 红），西湖每个 PMT 取最小 DCR
+- **Energy Resolution**：0.5 阈值虚线
+
+### 官方候选筛选标准
+
+`scripts/select_candidates.py` 实现的官方候选 PMT 筛选：
+
+- **Dark Count Rate** < 1000 Hz
+- **SPE Gain**（@800V，NULL 视为 800V）> 2.0
+- **Energy Resolution** < 0.5
+- **After-Pulse**：任一记录 > 5% 即排除；无 APP 数据的 PMT 保留
+
+结果：**71 / 146 候选（48.6%）**，保存于根目录 `candidates.csv` 与 `candidates_without_after_pulse.csv`。候选统计与分级筛选过程见 `docs/candidates_pmts_counts.md`。
 
 ## 推荐部署：Streamlit Community Cloud（公网访问）
 
@@ -125,6 +148,7 @@ pmt-scope/
 │   ├── plot_dark_rate.py         # Dark Count Rate 直方图 + 散点图 (matplotlib → PNG)
 │   ├── plot_after_pulse.py       # After-Pulse Probability 直方图 (matplotlib → PNG)
 │   ├── plot_energy_resolution.py # Energy Resolution 直方图 + 散点图 (matplotlib → PNG)
+│   ├── plot_overlap_comparison.py# 重复/重叠 PMT 的 USTC vs Westlake 对比图 (matplotlib → PNG)
 │   ├── select_candidates.py      # 候选 PMT 筛选（按 DCR/Gain/ER/APP 条件）
 │   └── generate_sample_data.py   # 示例数据生成
 │
@@ -134,11 +158,19 @@ pmt-scope/
 ├── data/
 │   └── pmt_data.csv              # 数据文件（CSV 模式，由 sync_and_deploy.sh 生成）
 ├── docs/
+│   ├── candidates_pmts_counts.md # 官方筛选标准与候选数量统计
+│   ├── relics_pmt_wiki.md       # RELICS PMT 测试汇总（Markdown 版）
+│   ├── relics_pmt_wiki.txt      # RELICS PMT 测试汇总（DokuWiki 格式，可直接粘贴到 DokuWiki 页面）
 │   ├── inference.md              # 需求文档
 │   ├── tasks.md                  # 开发任务列表
 │   ├── overlap_pmt_ids.csv       # 科大+西湖重复计数 PMT 列表
 │   └── ...                       # 其他绘图规格和统计文档
 ├── figs/                         # scripts/ 输出的 PNG 图片
+│   ├── after_pulse_histogram.png
+│   ├── dark_rate_histogram.png / dark_rate_scatter.png
+│   ├── energy_resolution_histogram.png / energy_resolution_scatter.png
+│   ├── gain_histogram.png / gain_scatter.png
+│   └── overlap_dcr_comparison.png / overlap_gain_comparison.png / overlap_er_comparison.png
 ├── .streamlit/
 │   └── secrets.toml.example      # Streamlit Secrets 模板
 ├── .gitignore

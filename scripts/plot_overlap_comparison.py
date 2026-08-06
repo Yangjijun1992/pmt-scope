@@ -2,7 +2,7 @@
 
 对 docs/overlap_pmt_ids.csv 中的 PMT，对比 USTC (xr) 与 Westlake (numeric) 的：
   - Dark Count Rate
-  - SPE Gain (hv ≤ 800V)
+  - SPE Gain (hv = 800V, NULL→800)
   - Energy Resolution
 
 每个 PMT 用竖线连接两次测量结果，不同形状/颜色区分测试地点：
@@ -26,9 +26,10 @@ import pandas as pd
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "pmt-data-client", "data", "pmt_data.db")
 FIGS_DIR = os.path.join(os.path.dirname(__file__), "..", "figs")
 
-COLOR_XR = "#D62728"
-COLOR_WL = "#2B6FB3"
+COLOR_XR = "#2CA02C"        # green: USTC (科大)
+COLOR_WL = "#2B6FB3"        # blue: Westlake (西湖)
 COLOR_LINE = "#AAAAAA"
+COLOR_MEDIAN = "#333333"
 
 
 def _load_overlap_pmts() -> set:
@@ -51,7 +52,7 @@ def _load_and_aggregate(db_path: str, column: str, hv_filter: bool = False) -> p
             SELECT pmt_id, run_id,
                    AVG({column}) AS {column}
             FROM measurements
-            WHERE {column} IS NOT NULL AND hv <= 800
+            WHERE {column} IS NOT NULL AND (hv = 800 OR hv IS NULL)
             GROUP BY pmt_id, run_id
         """
     else:
@@ -105,7 +106,7 @@ def _plot_comparison(agg: pd.DataFrame, column: str, out_path: str,
                        edgecolors="white", linewidths=0.5, label="Westlake" if i == 0 else "")
 
     if threshold is not None:
-        ax.axhline(threshold, color=COLOR_XR, linestyle="--", linewidth=2,
+        ax.axhline(threshold, color=COLOR_MEDIAN, linestyle="--", linewidth=2,
                    alpha=0.6, label=f"Threshold: {threshold}")
 
     ax.set_xticks(range(len(pmt_ids)))
@@ -141,17 +142,17 @@ def main():
             title="Overlap PMT Dark Count Rate: USTC vs Westlake",
         )
 
-    # ── SPE Gain (hv ≤ 800V) ──
+    # ── SPE Gain (hv = 800, NULL→800) ──
     gain_agg = _load_and_aggregate(DB_PATH, "spe_gain", hv_filter=True)
     gain_agg = gain_agg[gain_agg.index.isin(overlap_pmts)]
-    print(f"\n--- SPE Gain (hv ≤ 800V) ---")
+    print(f"\n--- SPE Gain (hv = 800, NULL→800) ---")
     print(f"  PMTs with both measurements: {gain_agg.dropna().shape[0]}")
     if gain_agg.dropna().shape[0] > 0:
         _plot_comparison(
             gain_agg, "spe_gain",
             os.path.join(FIGS_DIR, "overlap_gain_comparison.png"),
             ylabel="Gain [1.E6 e⁻]",
-            title="Overlap PMT SPE Gain (hv ≤ 800V): USTC vs Westlake",
+            title="Overlap PMT SPE Gain (hv=800, NULL→800): USTC vs Westlake",
         )
 
     # ── Energy Resolution ──
