@@ -11,24 +11,37 @@
 
 | Parameter | Condition |
 |-----------|-----------|
-| Dark Count Rate | < 1000 Hz |
+| Dark Count Rate | < 1200 Hz |
 | SPE Gain (HV @ 800 V) | > 2.0 × 10⁶ e⁻ |
 | Energy Resolution | < 0.5 |
 | After-Pulse Probability | Exclude any PMT with a record > 5%; retain if no APP data |
+
+> **Note**: Dark Count Rate cut was relaxed from < 1000 Hz to < 1200 Hz (2026-08-17) to recover enough installable PMTs after excluding occupied units.
 
 ---
 
 ## 2. Results
 
 - **Total PMTs tested**: 146
-- **PMTs passing all criteria**: **71**
+- **PMTs passing all criteria**: **82**
 
 | Category | Count |
 |----------|-------|
-| After-pulse tested & passed | 49 |
-| After-pulse not yet tested | 22 |
+| After-pulse tested & passed | 53 |
+| After-pulse not yet tested | 29 |
 
-The 22 PMTs without after-pulse data have been requested from Tsinghua University for shipment to Westlake for further testing.
+### 2.1 Available PMTs (after excluding occupied units)
+
+Some candidates are currently Broken / on loan / in use at other institutes (see `supplemental_list.md`). After excluding those **23** occupied units:
+
+- **Installable / available PMTs**: **59** (≥ 56 required)
+
+| Category | Count |
+|----------|-------|
+| Available, with APP data | 48 |
+| Available, no APP data (retained) | 11 |
+
+The 29 candidates without after-pulse data have been requested from Tsinghua University for shipment to Westlake for further testing.
 
 ---
 
@@ -54,14 +67,37 @@ The 22 PMTs without after-pulse data have been requested from Tsinghua Universit
 
 ### 3.4 After-Pulse Probability
 
-![after_pulse_histogram](../figs/after_pulse_histogram.png)
+| Histogram | Scatter |
+|-----------|---------|
+| ![after_pulse_histogram](../figs/after_pulse_histogram.png) | ![after_pulse_scatter](../figs/after_pulse_scatter.png) |
+
+### 3.5 Available (59 pcs) Parameter Histograms
+
+Histograms of the 59 installable PMTs (after excluding occupied units). Dashed purple line = mean, red dot line = median.
+
+| Dark Count Rate | SPE Gain |
+|-----------------|----------|
+| ![available_dark_rate_histogram](../figs/available_dark_rate_histogram.png) | ![available_gain_histogram](../figs/available_gain_histogram.png) |
+
+| Energy Resolution | After-Pulse |
+|-------------------|-------------|
+| ![available_er_histogram](../figs/available_er_histogram.png) | ![available_app_histogram](../figs/available_app_histogram.png) |
+
+Summary statistics (59 available PMTs; APP counts only PMTs with data):
+
+| Parameter | n | Min | Max | Mean | Median | Std |
+|-----------|---|-----|-----|------|--------|-----|
+| Dark Rate [Hz] | 59 | 36.69 | 1162.0 | 512.67 | 411.0 | 332.36 |
+| Gain [10⁶ e⁻] | 59 | 2.726 | 11.863 | 6.831 | 6.824 | 1.934 |
+| Energy Res. | 59 | 0.325 | 0.500 | 0.412 | 0.411 | 0.057 |
+| APP [%] | 48 | 1.20 | 4.90 | 3.022 | 2.85 | 1.129 |
 
 ---
 
 ## 4. Candidate PMT List
 
 <details>
-<summary>Click to expand — 71 candidates</summary>
+<summary>Click to expand — 82 candidates</summary>
 
 | PMT ID | Min Dark Rate [Hz] | Gain @ 800V [10⁶ e⁻] | Min Energy Res. | APP [%] | n_records |
 |--------|-------------------:|----------------------:|----------------:|--------:|----------:|
@@ -87,12 +123,16 @@ The 22 PMTs without after-pulse data have been requested from Tsinghua Universit
 | LV2270 | 408.00 | 5.25 | 0.3376 | - | 1 |
 | LV2274 | 478.00 | 5.21 | 0.3529 | - | 1 |
 | LV2275 | 288.00 | 6.48 | 0.3453 | 4.65 | 1 |
+| LV2276 | 1147.00 | 5.24 | 0.3399 | - | 1 |
 | LV2294 | 283.00 | 7.28 | 0.3735 | 1.59 | 3 |
 | LV2305 | 336.61 | 5.24 | 0.3551 | - | 2 |
 | LV2309 | 777.00 | 3.39 | 0.4078 | - | 1 |
 | LV2312 | 619.00 | 2.73 | 0.4798 | 1.68 | 1 |
 | LV2317 | 382.20 | 7.99 | 0.3474 | 4.12 | 5 |
 | LV2319 | 502.60 | 9.40 | 0.3751 | 4.16 | 13 |
+| LV2324 | 1162.00 | 6.01 | 0.3292 | 2.48 | 4 |
+| LV2326 | 1057.38 | 6.49 | 0.4109 | 2.50 | 3 |
+| LV2331 | 1017.47 | 7.76 | 0.4006 | 2.57 | 4 |
 | LV2335 | 237.90 | 7.73 | 0.3486 | 2.06 | 5 |
 | LV2336 | 408.39 | 7.70 | 0.4101 | 3.61 | 4 |
 | LV2337 | 360.00 | 6.52 | 0.4365 | 1.45 | 3 |
@@ -100,27 +140,34 @@ The 22 PMTs without after-pulse data have been requested from Tsinghua Universit
 | LV2343 | 565.46 | 6.63 | 0.3936 | 4.55 | 3 |
 | LV2345 | 76.82 | 7.80 | 0.3871 | 2.17 | 5 |
 | LV2347 | 159.22 | 6.82 | 0.3544 | 2.07 | 5 |
+| LV2348 | 1098.00 | 5.43 | 0.3328 | - | 1 |
 | LV2349 | 386.46 | 6.84 | 0.3994 | 4.86 | 3 |
 | LV2354 | 255.00 | 4.19 | 0.4237 | - | 1 |
 | LV2355 | 612.00 | 4.17 | 0.3399 | - | 1 |
 | LV2356 | 591.00 | 5.67 | 0.3592 | 1.44 | 3 |
 | LV2359 | 409.00 | 3.09 | 0.3748 | 1.60 | 1 |
 | LV2361 | 790.52 | 5.85 | 0.4511 | 4.47 | 3 |
+| LV2362 | 1042.91 | 5.80 | 0.4231 | 2.72 | 4 |
 | LV2365 | 417.22 | 5.98 | 0.4184 | 2.47 | 4 |
 | LV2366 | 746.00 | 3.31 | 0.3459 | 1.37 | 1 |
+| LV2367 | 1021.00 | 4.00 | 0.4118 | - | 1 |
 | LV2368 | 517.00 | 3.25 | 0.4044 | - | 1 |
 | LV2369 | 267.84 | 4.42 | 0.4442 | 1.20 | 3 |
 | LV2371 | 241.43 | 4.44 | 0.4291 | - | 2 |
 | LV2377 | 411.00 | 9.19 | 0.4229 | 4.15 | 3 |
 | LV2378 | 628.04 | 6.93 | 0.3487 | 2.74 | 3 |
 | LV2380 | 495.76 | 11.10 | 0.3366 | 3.16 | 13 |
+| LV2381 | 1002.00 | 4.04 | 0.4800 | - | 1 |
 | LV2382 | 325.24 | 7.56 | 0.3353 | 3.08 | 5 |
 | LV2383 | 499.00 | 6.39 | 0.3642 | 2.30 | 3 |
+| LV2384 | 1073.00 | 5.15 | 0.4017 | - | 1 |
+| LV2386 | 1133.00 | 4.79 | 0.4291 | - | 1 |
 | LV2387 | 549.73 | 10.30 | 0.4098 | 1.51 | 13 |
 | LV2389 | 863.14 | 11.14 | 0.4122 | 1.51 | 13 |
 | LV2390 | 368.93 | 7.31 | 0.3369 | 2.96 | 5 |
 | LV2391 | 305.64 | 10.30 | 0.3893 | 0.81 | 13 |
 | LV2392 | 875.00 | 4.25 | 0.4450 | - | 1 |
+| LV2393 | 1107.00 | 3.84 | 0.4890 | - | 1 |
 | LV2394 | 533.17 | 7.72 | 0.4055 | 2.33 | 3 |
 | LV2395 | 984.00 | 3.50 | 0.4737 | - | 1 |
 | LV2397 | 588.00 | 4.50 | 0.4442 | - | 1 |

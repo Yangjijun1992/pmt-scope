@@ -26,7 +26,7 @@ DB_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "pmt-data-client", "data", "pmt_data.db"
 )
 
-DCR_MAX = 1000.0
+DCR_MAX = 1200.0
 GAIN_MIN = 2.0
 ER_MAX = 0.5
 APP_MAX = 0.05
